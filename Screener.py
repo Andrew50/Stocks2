@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import mplfinance as mpf
 from Data import Data as data
+from Data import Main as main
 from multiprocessing import Pool
 from Study import Study as study
 from discordwebhook import Discord
@@ -15,8 +16,16 @@ import pathlib, time, selenium, datetime, os, math, tensorflow
 class Screener:
 
 	def run(dt = None, ticker = None, tf = 'd',browser = None, fpath = None):
-		with Pool(int(data.get_config('Data cpu_cores'))) as pool:
-			dt = data.format_date(dt)
+		with Pool() as pool:
+			
+
+
+
+
+
+
+			dt = main.format_date(dt)
+			print(dt)
 			path = 0
 			if ticker == None:
 				if dt == None: 
@@ -24,10 +33,10 @@ class Screener:
 					ticker_list = Screener.get('full')
 				else:
 					if 'd' in tf or 'w' in tf: 
-						ticker_list, browser = Screener.get('current',True,browser)
+						ticker_list, browser = Screener.get('current',False,browser)#
 						path = 1
 					else: 
-						ticker_list, browser = Screener.get('intraday',True,browser)
+						ticker_list, browser = Screener.get('intraday',False,browser)#
 						path = 2
 			else:
 				path = 1
@@ -41,48 +50,38 @@ class Screener:
 			df['ticker'] = ticker_list
 			df['dt'] = dt
 			df['tf'] = tf
-			num_dfs = int(data.get_config('Data cpu_cores'))
-			values = []
-			s = math.ceil(len(df) / num_dfs)
-			for i in range(num_dfs):
-				d = df[int(s*i):int(s*(i+1))].reset_index(drop = True)
-				if not d.empty: values.append(pool.apply_async(data.create_arrays,args = ([d]))) 
-			tensorflow.keras.backend.clear_session()
-			model_list = [[st,data.load_model(st)] for st in data.get_config('Screener active_setup_list').split(',') if tf in st]
-			x = np.concatenate([bar.get()[0] for bar in values])
-			info = np.concatenate([bar.get()[2] for bar in values])
-			dfs = {}
-			for bar in values: dfs.update(bar.get()[3])
-			for st, model in model_list:
-				setups = data.score(x,info,dfs,st,model)
-				for ticker,dt,score,df in setups:
-					Screener.log(ticker,score,dt,tf,path,st,df)
 
-	def log(ticker,z, dt, tf,  path, setup_type,df):
-		dt = data.format_date(dt)
-		if path == 3: print(f'{ticker} {dt} {z} {setup_type}')
-		elif path == 2:
-			mpf.plot(df[-100:], type='candle', mav=(10, 20), volume=True, title=f'{ticker}, {setup_type}, {z}, {tf}', style=mpf.make_mpf_style(marketcolors=mpf.make_marketcolors(up='g',down='r')), savefig = pathlib.Path("C:/Stocks/local/screener")/ 'intraday.png')
-			Discord(url="https://discord.com/api/webhooks/1071667193709858847/qwHcqShmotkEPkml8BSMTTnSp38xL1-bw9ESFRhBe5jPB9o5wcE9oikfAbt-EKEt7d3c").post(file={"intraday": open('local/screener/intraday.png', "rb")})
-		elif path == 1:
-			d = r"C:\Stocks\local\study\current_setups.feather"
-			try: setups = pd.read_feather(d)
-			except: setups = pd.DataFrame()
-			setups = pd.concat([setups,pd.DataFrame({'ticker': [ticker],'dt':[dt],'st': [setup_type],'z':[z]})]).reset_index(drop = True)
-			setups.to_feather(d)
-		elif path == 0:
-			d = r"C:\Stocks\local\study\historical_setups.feather"
-			try: setups = pd.read_feather(d)
-			except: setups = pd.DataFrame()
-			setups = pd.concat([setups,pd.DataFrame({'ticker':[ticker], 'dt': [dt],'st': [setup_type], 'z': [z], 'sub_st':[setup_type], 'pre_annotation': [""], 'post_annotation': [""] })]) .reset_index(drop = True)
-			setups.to_feather(d)
+			st = main.get_config('Screener active_setup_list').split(',')
+			
+			setups = main.score_dataset(df,st)
+
+
+			for ticker, dt, st, score in setups:
+				if path == 3: print(f'{ticker} {dt} {score} {st}')
+				elif path == 2:
+					mpf.plot(df[-100:], type='candle', mav=(10, 20), volume=True, title=f'{ticker}, {st}, {score}, {tf}', style=mpf.make_mpf_style(marketcolors=mpf.make_marketcolors(up='g',down='r')), savefig = pathlib.Path("C:/Stocks/local/screener")/ 'intraday.png')
+					Discord(url="https://discord.com/api/webhooks/1071667193709858847/qwHcqShmotkEPkml8BSMTTnSp38xL1-bw9ESFRhBe5jPB9o5wcE9oikfAbt-EKEt7d3c").post(file={"intraday": open('local/screener/intraday.png', "rb")})
+				elif path == 1:
+					d = r"C:\Stocks\local\study\current_setups.feather"
+					try: setups = pd.read_feather(d)
+					except: setups = pd.DataFrame()
+					setups = pd.concat([setups,pd.DataFrame({'ticker': [ticker],'dt':[dt],'st': [st],'z':[score]})]).reset_index(drop = True)
+					setups.to_feather(d)
+				elif path == 0:
+					d = r"C:\Stocks\local\study\historical_setups.feather"
+					try: setups = pd.read_feather(d)
+					except: setups = pd.DataFrame()
+					setups = pd.concat([setups,pd.DataFrame({'ticker':[ticker], 'dt': [dt],'st': [st], 'z': [score], 'sub_st':[st], 'pre_annotation': [""], 'post_annotation': [""] })]) .reset_index(drop = True)
+					setups.to_feather(d)
+
+
 
 	def get(type = 'full', refresh = False, browser = None):
 
 		def start_firefox():
 			options = webdriver.FirefoxOptions()
 			options.binary_location = r"C:\Program Files\Mozilla Firefox\firefox.exe"
-			options.headless = True
+			#options.headless = True##
 			service = Service(executable_path=os.path.join(os.getcwd(), 'Drivers', 'geckodriver.exe'))
 			FireFoxProfile = webdriver.FirefoxProfile()
 			FireFoxProfile.set_preference("General.useragent.override", 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:87.0) Gecko/20100101 Firefox/87.0')
@@ -171,7 +170,7 @@ class Screener:
 				bar = df.loc[i]
 				ticker = bar['Ticker']
 				if  isinstance(ticker,str) and '.' not in ticker and '/' not in ticker and not ticker == 'nan':
-					if str(bar['Exchange']) == "NYSE ARCA": df.iloc[i]['Exchange'] = "AMEX"
+					if str(bar['Exchange']) == "NYSE ARCA": df.at[i,'Exchange'] = "AMEX"
 				else: df = df.drop(i)
 			df = df.drop('Description', axis = 1)
 			df = df.fillna(0)
@@ -198,5 +197,6 @@ class Screener:
 		elif type == 'intraday': return get_intraday(browser)
 
 if __name__ == '__main__':
-	Screener.run('current')
-	study.run(study,True)
+	#Screener.get('current',True)
+	Screener.run('current')#
+	study.run(study,True)#

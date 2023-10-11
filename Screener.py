@@ -198,5 +198,5 @@ class Screener:
 
 if __name__ == '__main__':
 	#Screener.get('current',True)
-	Screener.run('current')#
+	Screener.run('current',fpath = 3)#
 	study.run(study,True)#

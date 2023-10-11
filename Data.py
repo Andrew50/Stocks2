@@ -83,7 +83,7 @@ class Main:
 		model = Main.load_model(st)
 		returns = []
 		for df in dfs:
-			scores = df.score(st,threshold)
+			scores = df.load_score(st,threshold)
 			for bar in [b for b in scores if b[3] > threshold]:
 				returns += bar
 		return returns
@@ -97,7 +97,7 @@ class Main:
 		tim = (datetime.datetime.now() - start)
 		start = datetime.datetime.now()
 		
-		df.np(bars)
+		df.np = df.load_np(bars)
 		return df
 	
 	
@@ -173,7 +173,7 @@ class Data:
 		self.bars = bars
 		self.offset = offset
 		
-	def np(self,bars,standard = True,gpu = False):
+	def load_np(self,bars,standard = True,gpu = False):
 		returns = []
 		try:
 			
@@ -182,6 +182,8 @@ class Data:
 			if standard: partitions = 1
 			else: partitions = bars//2
 			x = df.to_numpy()
+			x = np.flip(x,0)
+			
 			d = np.zeros((x.shape[0]-1,x.shape[1]))
 			for i in range(len(d)): #add ohlc
 				d[i] = x[i+1]/x[i,3] - 1
@@ -194,20 +196,16 @@ class Data:
 						pass
 					else:
 						x = d[i-bars:i]	
-						#x.reverse()
 						x = preprocessing.normalize(x,axis = 0)
-						x = np.flip(x,0)
 						if not standard: 
 							x = x[:,3]
 							x = np.column_stack((x, numpy.arange(  x.shape[0])))
 						returns.append([x,i])
-				
 		except TimeoutError: 
 			pass
-		self.np = returns
 		return returns
 	
-	def plot(self,hidden = False):
+	def load_plot(self,hidden = False):
 		buffer = io.BytesIO()
 		s = mpf.make_mpf_style(base_mpf_style= 'nightclouds',marketcolors=mpf.make_marketcolors(up='g',down='r',wick ='inherit',edge='inherit',volume='inherit'))
 		if hidden: title = ''
@@ -221,7 +219,7 @@ class Data:
 		self.plot = buffer.getvalue()
 		return self.plot
 
-	def score(self,st,model = None):
+	def load_score(self,st,model = None):
 		if model == None: model = Main.load_model(st)
 		returns = []
 		for df, index in self.np:
@@ -250,8 +248,6 @@ class Data:
 
 
 if __name__ == '__main__':
-	import matplotlib.pyplot as plt
-	import matplotlib.image as mpimg
 	df = Data(dt = '2023-10-06')
 	print(df.df)
 	

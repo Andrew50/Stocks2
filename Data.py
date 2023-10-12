@@ -51,7 +51,7 @@ class Main:
 	def data_path(ticker,tf):
 		if 'd' in tf or 'w' in tf: path = 'd/' 
 		else: path = '1min/'
-		return 'local/data/' + path + ticker + '.feather'
+		return 'C:/Stocks/local/data/' + path + ticker + '.feather' ######################## 
 	
 	def train(st, percent_yes, epochs):
 		df = pd.read_feather('C:/Stocks/local/data/' + st + '.feather')
@@ -297,10 +297,9 @@ class Data:
 		self.value = value
 		self.bars = bars
 		self.offset = offset
-		
 
 	def requirements(self):
-		
+		pass
 		
 	def load_np(self,bars,standard = True,gpu = False):
 		returns = []
@@ -314,6 +313,7 @@ class Data:
 			x = np.flip(x,0)
 			
 			d = np.zeros((x.shape[0]-1,x.shape[1]))
+			time.sleep(2)
 			for i in range(len(d)): #add ohlc
 				d[i] = x[i+1]/x[i,3] - 1
 			if partitions != 0:
@@ -328,10 +328,11 @@ class Data:
 						x = preprocessing.normalize(x,axis = 0)
 						if not standard: 
 							x = x[:,3]
-							x = np.column_stack((x, numpy.arange(  x.shape[0])))
+							x = np.column_stack((x, numpy.arange(x.shape[0])))
 						returns.append([x,i])
 		except TimeoutError: 
 			pass
+		self.np = returns
 		return returns
 	
 	def load_plot(self,hidden = False):
@@ -356,7 +357,8 @@ class Data:
 			returns.append([self.ticker,self.df.index[index],st,score])
 		self.score = returns
 		return returns
-
+	def get_scores(self):
+		return self.ticker, self.index, self.scores
 	def findex(self,dt):
 		dt = Main.format_date(dt)
 		if not isinstance(self,pd.DataFrame): df = self.df

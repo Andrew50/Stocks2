@@ -1,11 +1,11 @@
 from locale import normalize
 from multiprocessing.pool import Pool
 from Data import Data as data
+from Data import Main as main
 import numpy as np
 import datetime
 from Screener import Screener as screener
 import time
-from Test import Data
 from discordwebhook import Discord
 import numpy as np
 from sklearn import preprocessing
@@ -14,7 +14,7 @@ import mplfinance as mpf
 import torch
 from tqdm import tqdm
 from sfastdtw import sfastdtw
-
+from scipy.spatial.distance import euclidean
 #from soft_dtw_cuda.soft_dtw_cuda import SoftDTW
 
 ## Create the sequences
@@ -33,9 +33,9 @@ from sfastdtw import sfastdtw
 
 ## Aggregate and call backward()
 #loss.mean().backward()
-from Dtw import dtw as dtw
-import cupy as cp
-cp.cuda.Device(0).use()
+#from Dtw import dtw as dtw
+#import cupy as cp
+#cp.cuda.Device(0).use()
 			
 class Match:
 
@@ -66,10 +66,10 @@ class Match:
 		
 		tf = 'd'
 		if dt != None:
-			df = Data(ticker,tf,dt,bars = bars+1)
+			df = data(ticker,tf,dt,bars = bars+1)
 		else:
-			df = Data(ticker,tf)
-		df.np(bars,True)
+			df = data(ticker,tf)
+		df.load_np(bars,False)
 		return df
 
 	def worker(bar):
@@ -79,24 +79,27 @@ class Match:
 		pbar = tqdm(total=len(df1.np))
 		for x in df1.np:
 			#print(f'-{x} , {y}-')
-			distance = Match.dtw_gpu(x, y)
+			x = x[0]
+			distance = sfastdtw(x, y, 1, dist=euclidean)
 			lis.append(distance)
 			pbar.update(1)
 		pbar.close()
+		setattr(df1, 'index', x[1])
 		setattr(df1,'scores',lis)
-		print('1')
 		return df1
 	
 	def match(ticker,dt,bars,dfs):
-		y = Match.fetch(ticker,bars,dt).np[0]
+		y = Match.fetch(ticker,bars,dt).np[0][0]
+		print(y)
+		time.sleep(2)
 		arglist = [[x,y] for x in dfs]
-		#dfs = data.pool(Match.worker,arglist)
-		df = [Match.worker(arg) for arg in arglist]
+		dfs = main.pool(Match.worker,arglist)
+		#df = [Match.worker(arg) for arg in arglist]
 		return dfs
 	
 	def initiate(ticker, dt, bars): 
 		ticker_list = screener.get('full')[:2000]
-		dfs = data.pool(Match.fetch,ticker_list)
+		dfs = main.pool(Match.fetch,ticker_list)
 		start = datetime.datetime.now()
 		dfs = Match.match(ticker,dt,bars,dfs)
 		scores = []
@@ -112,7 +115,7 @@ if __name__ == '__main__':
 	
 	if True:
 		ticker_list = screener.get('full')[:100]
-		dfs = data.pool(Match.fetch,ticker_list)
+		dfs = main.pool(Match.fetch,ticker_list)
 		ticker = 'JBL' #input('input ticker: ')
 		dt = '2023-10-03' #input('input date: ')
 		bars = 10 #int(input('input bars: '))
@@ -120,13 +123,14 @@ if __name__ == '__main__':
 		dfs = Match.match(ticker,dt,bars,dfs)
 		scores = []
 		for df in dfs:
-			lis = df.get_scores()
-			scores += lis
-		scores.sort(key=lambda x: x[2])
+			t,i,s = df.get_scores()
+			scores.append([t,i,s])
+		print(scores)
+		scores.sort(key=lambda x: x[1])
 		print(f'completed in {datetime.datetime.now() - start}')
 		for ticker,index,score in scores[:20]:
 			
-			print(f'{ticker} {Data(ticker).df.index[index]} {score}')
+			print(f'{ticker} {data(ticker).df.index[index]} {score}')
 		
 
 						#lis.append(pyts.metrics.dtw(x,y))

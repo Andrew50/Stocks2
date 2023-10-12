@@ -3,7 +3,7 @@
 
 from __future__ import absolute_import, division
 import numbers
-import cupy as cp
+#import cupy as cp
 import numpy as np
 from collections import defaultdict
 
@@ -23,7 +23,7 @@ def __difference(a, b):
 
 
 def __norm(p):
-    return lambda a, b: cp.linalg.norm(cp.atleast_1d(a) - cp.atleast_1d(b), p)
+    return lambda a, b: np.linalg.norm(np.atleast_1d(a) - np.atleast_1d(b), p)
 
 
 def __fastdtw(x, y, radius, dist):
@@ -43,8 +43,8 @@ def __fastdtw(x, y, radius, dist):
 
 
 def __prep_inputs(x, y, dist):
-    x = cp.asanyarray(x, dtype='float')
-    y = cp.asanyarray(y, dtype='float')
+    x = np.asanyarray(x, dtype='float')
+    y = np.asanyarray(y, dtype='float')
 
     if x.ndim == y.ndim > 1 and x.shape[1] != y.shape[1]:
         raise ValueError('second dimension of x and y must be the same')

@@ -17,15 +17,7 @@ class Screener:
 
 	def run(dt = None, ticker = None, tf = 'd',browser = None, fpath = None):
 		with Pool() as pool:
-			
-
-
-
-
-
-
 			dt = main.format_date(dt)
-			print(dt)
 			path = 0
 			if ticker == None:
 				if dt == None: 
@@ -50,12 +42,8 @@ class Screener:
 			df['ticker'] = ticker_list
 			df['dt'] = dt
 			df['tf'] = tf
-
 			st = main.get_config('Screener active_setup_list').split(',')
-			
 			setups = main.score_dataset(df,st)
-
-
 			for ticker, dt, st, score in setups:
 				if path == 3: print(f'{ticker} {dt} {score} {st}')
 				elif path == 2:
@@ -73,8 +61,6 @@ class Screener:
 					except: setups = pd.DataFrame()
 					setups = pd.concat([setups,pd.DataFrame({'ticker':[ticker], 'dt': [dt],'st': [st], 'z': [score], 'sub_st':[st], 'pre_annotation': [""], 'post_annotation': [""] })]) .reset_index(drop = True)
 					setups.to_feather(d)
-
-
 
 	def get(type = 'full', refresh = False, browser = None):
 

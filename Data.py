@@ -18,17 +18,19 @@ from matplotlib import pyplot as plt
 from multiprocessing.pool import Pool
 import os, pathlib, shutil, math, PIL, io
 from tensorflow.keras import models
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM, Bidirectional, Dropout
 #models import load_model
 ## Implement error getting passed into discord 
 
-
-
-
 class Main:
+	
 	def pool(deff,arg):
+		return list(tqdm(Pool().imap_unordered(deff, arg), total=len(arg)))
 		pool = Pool()
 		data = list(tqdm(pool.imap_unordered(deff, arg), total=len(arg)))
 		return data
+	
 	def is_pre_market(dt):
 		if dt is None: return False
 		if( (((dt.hour*60)+dt.minute) - 570) < 0):
@@ -51,6 +53,19 @@ class Main:
 		else: path = '1min/'
 		return 'local/data/' + path + ticker + '.feather'
 	
+	def train(st, percent_yes, epochs):
+		df = pd.read_feather('C:/Stocks/local/data/' + st + '.feather')
+		ones = len(df[df['value'] ==1])
+		if ones < 150: 
+			print(f'{st} cannot be trained with only {ones} positives')
+			return
+		dfs  = Main.sample(st, percent_yes)
+		model = Sequential([Bidirectional(LSTM(64, input_shape = (x.shape[1], x.shape[2]), return_sequences = True,),),Dropout(0.2), Bidirectional(LSTM(32)), Dense(3, activation = 'softmax'),])
+		model.compile(loss = 'sparse_categorical_crossentropy', optimizer = Adam(learning_rate = 1e-3), metrics = ['accuracy'])
+		model.fit(x, y, epochs = epochs, batch_size = 64, validation_split = .2,)
+		model.save('C:/Stocks/sync/models/model_' + st)
+		tensorflow.keras.backend.clear_session()
+	
 	def is_market_open(): # Change to a boolean at some point 
 		if(datetime.datetime.now().weekday() >= 5): return False # If saturday or sunday 
 		dt = datetime.datetime.now(pytz.timezone('US/Eastern'))
@@ -72,7 +87,6 @@ class Main:
 	
 	def load_model(st):
 		start = datetime.datetime.now()
-		print(st)
 		model = models.load_model('C:/Stocks/sync/models/model_' + st)
 		print(f'{st} model loaded in {datetime.datetime.now() - start}')
 		return model
@@ -134,11 +148,122 @@ class Main:
 		try: value = float(value)
 		except: pass
 		return value
+	
+
+	def sample(st,use):
+
+		Data.consolidate_database()
+		allsetups = pd.read_feather('C:/Stocks/local/data/' + st + '.feather').sort_values(by='dt', ascending = False).reset_index(drop = True)
+		yes = []
+		no = []
+		groups = allsetups.groupby(pd.Grouper(key='ticker'))
+		dfs = [group for _,group in groups]
+		for df in dfs:
+			df = df.reset_index(drop = True)
+			for i in range(len(df)):
+				bar = df.iloc[i]
+				if bar['value'] == 1:
+					for ii in [i + ii for ii in [-2,-1,1,2]]:
+						if abs(ii) < len(df): 
+							bar2 = df.iloc[ii]
+							if bar2['value'] == 0: no.append(bar2)
+					yes.append(bar)
+		yes = pd.DataFrame(yes)
+		no = pd.DataFrame(no)
+		
+		required =  int(len(yes) - ((len(no)+len(yes)) * use))
+		if required < 0:
+			no = no[:required]
+		while True:
+			no = no.drop_duplicates(subset = ['ticker','dt'])
+			required =  int(len(yes) - ((len(no)+len(yes)) * use))
+			sample = allsetups[allsetups['value'] == 0].sample(frac = 1)
+			if required < 0 or len(sample) == len(no): break
+			sample = sample[:required + 1]
+			no = pd.concat([no,sample])
+		df = pd.concat([yes,no]).sample(frac = 1).reset_index(drop = True)
+		df['tf'] = st.split('_')[0]
+		
+
+		return df
+
+
+
+	def check_directories():
+		dirs = ['C:/Stocks/local','C:/Stocks/local/data','C:/Stocks/local/account','C:/Stocks/local/study','C:/Stocks/local/trainer','C:/Stocks/local/data/1min','C:/Stocks/local/data/d']
+		if not os.path.exists(dirs[0]): 
+			for d in dirs: os.mkdir(d)
+		if not os.path.exists("C:/Stocks/config.txt"): shutil.copyfile('C:/Stocks/sync/files/default_config.txt','C:/Stocks/config.txt')
+
+	def refill_backtest():
+		from Screener import Screener as screener
+		try: historical_setups = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+		except: historical_setups = pd.DataFrame()
+		if not os.path.exists("C:\Stocks\local\study\full_list_minus_annotated.feather"): shutil.copy(r"C:\Stocks\sync\files\full_scan.feather", r"C:\Stocks\local\study\full_list_minus_annotated.feather")
+		while historical_setups.empty or (len(historical_setups[historical_setups["pre_annotation"] == ""]) < 2500):
+			full_list_minus_annotation = pd.read_feather(r"C:\Stocks\local\study\full_list_minus_annotated.feather").sample(frac=1)
+			screener.run(ticker = full_list_minus_annotation[:20]['ticker'].tolist(), fpath = 0)
+			full_list_minus_annotation = full_list_minus_annotation[20:].reset_index(drop=True)
+			full_list_minus_annotation.to_feather(r"C:\Stocks\local\study\full_list_minus_annotated.feather")
+			historical_setups = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+
+	def backup():
+		date = datetime.date.today()
+		src = r'C:/Stocks'
+		dst = r'C:/Backups/' + str(date)
+		shutil.copytree(src, dst)
+		path = "C:/Backups/"
+		dir_list = os.listdir(path)
+		for b in dir_list:
+			dt = datetime.datetime.strptime(b, '%Y-%m-%d')
+			if (datetime.datetime.now() - dt).days > 30: shutil.rmtree((path + b))
+
+	def add_setup(ticker,date,setup,val,req,ident = None):
+		date = Data.format_date(date)
+		add = pd.DataFrame({ 'ticker':[ticker], 'dt':[date], 'value':[val], 'required':[req] })
+		if ident == None: ident = Data.get_config('Data identity') + '_'
+		path = 'C:/Stocks/sync/database/' + ident + setup + '.feather'
+		try: df = pd.read_feather(path)
+		except FileNotFoundError: df = pd.DataFrame()
+		df = pd.concat([df,add]).drop_duplicates(subset = ['ticker','dt'],keep = 'last').reset_index(drop = True)
+		df.to_feather(path)
+
+	def consolidate_database(): 
+		setups = Data.get_setups_list()
+		for setup in setups:
+			df = pd.DataFrame()
+			#for ident in ['ben_','desktop_','laptop_', 'ben_laptop_']:
+			for ident in ['desktop_','laptop_']:
+				try: 
+					df1 = pd.read_feather(f"C:/Stocks/sync/database/{ident}{setup}.feather").dropna()
+					df1['sindex'] = df1.index
+					df1['source'] = ident
+					df = pd.concat([df,df1]).reset_index(drop = True)
+				except FileNotFoundError: pass
+			df.to_feather(f"C:/Stocks/local/data/{setup}.feather")
+
+	def get_setups_list():
+		setups = []
+		path = "C:/Stocks/sync/database/"
+		dir_list = os.listdir(path)
+		for p in dir_list:
+			s = p.split('_')
+			s = s[1] + '_' + s[2].split('.')[0]
+			use = True
+			for h in setups:
+				if s == h:
+					use = False
+					break
+			if use: setups.append(s)
+		return setups
 		
 		
 
 
 class Data:
+	
+	def update(self):
+		pass
 	
 	def __init__(self,ticker = 'QQQ',tf = 'd',dt = None,bars = 0,offset = 0,value = None, pm = True):
 		try:
@@ -172,6 +297,10 @@ class Data:
 		self.value = value
 		self.bars = bars
 		self.offset = offset
+		
+
+	def requirements(self):
+		
 		
 	def load_np(self,bars,standard = True,gpu = False):
 		returns = []

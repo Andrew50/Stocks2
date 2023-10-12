@@ -373,9 +373,6 @@ class Data:
 		return i
 		
 
-
-
-
 if __name__ == '__main__':
 	df = Data(dt = '2023-10-06')
 	print(df.df)

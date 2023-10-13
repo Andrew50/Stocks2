@@ -198,7 +198,7 @@ class Trainer:
 							index = random.randint(0,len(df) - 1)
 							left = index - 300
 							if left < 0:left = 0
-							df = df[left:index S+ 1]
+							df = df[left:index+ 1]
 							if data.get_requirements(ticker, df, self.current_setup): break
 					title = ''
 				elif self.current_menu == 'Validator':

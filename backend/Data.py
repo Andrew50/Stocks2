@@ -30,7 +30,7 @@ class Main:
 		pool = Pool()
 		data = list(tqdm(pool.imap_unordered(deff, arg), total=len(arg)))
 		return data
-	
+	 
 	def is_pre_market(dt):
 		if dt is None: return False
 		if( (((dt.hour*60)+dt.minute) - 570) < 0):
@@ -51,19 +51,26 @@ class Main:
 	def data_path(ticker,tf):
 		if 'd' in tf or 'w' in tf: path = 'd/' 
 		else: path = '1min/'
-		return 'C:/Stocks/local/data/' + path + ticker + '.feather' ######################## 
+		return 'local/data/' + path + ticker + '.feather'
 	
 	def train(st, percent_yes, epochs):
-		df = pd.read_feather('C:/Stocks/local/data/' + st + '.feather')
+		df = pd.read_feather('local/data/' + st + '.feather')
 		ones = len(df[df['value'] ==1])
 		if ones < 150: 
 			print(f'{st} cannot be trained with only {ones} positives')
 			return
-		dfs  = Main.sample(st, percent_yes)
+		df  = Main.sample(st, percent_yes)
+		print(df)
+		arglist = [df.iloc[i] for i in range(len(df))]
+		dfs = Main.pool(Main.worker2,arglist)
+		
+
+
+
 		model = Sequential([Bidirectional(LSTM(64, input_shape = (x.shape[1], x.shape[2]), return_sequences = True,),),Dropout(0.2), Bidirectional(LSTM(32)), Dense(3, activation = 'softmax'),])
 		model.compile(loss = 'sparse_categorical_crossentropy', optimizer = Adam(learning_rate = 1e-3), metrics = ['accuracy'])
 		model.fit(x, y, epochs = epochs, batch_size = 64, validation_split = .2,)
-		model.save('C:/Stocks/sync/models/model_' + st)
+		model.save('sync/models/model_' + st)
 		tensorflow.keras.backend.clear_session()
 	
 	def is_market_open(): # Change to a boolean at some point 
@@ -87,7 +94,7 @@ class Main:
 	
 	def load_model(st):
 		start = datetime.datetime.now()
-		model = models.load_model('C:/Stocks/sync/models/model_' + st)
+		model = models.load_model('sync/models/model_' + st)
 		print(f'{st} model loaded in {datetime.datetime.now() - start}')
 		return model
 
@@ -126,7 +133,7 @@ class Main:
 		return setups
 	
 	def get_config(name):
-		s  = open("C:/Stocks/config.txt", "r").read()
+		s  = open("config.txt", "r").read()
 		trait = name.split(' ')[1]
 		script = name.split(' ')[0]
 		trait.replace(' ','')
@@ -152,8 +159,8 @@ class Main:
 
 	def sample(st,use):
 
-		Data.consolidate_database()
-		allsetups = pd.read_feather('C:/Stocks/local/data/' + st + '.feather').sort_values(by='dt', ascending = False).reset_index(drop = True)
+		Main.consolidate_database()
+		allsetups = pd.read_feather('local/data/' + st + '.feather').sort_values(by='dt', ascending = False).reset_index(drop = True)
 		yes = []
 		no = []
 		groups = allsetups.groupby(pd.Grouper(key='ticker'))
@@ -183,17 +190,37 @@ class Main:
 			no = pd.concat([no,sample])
 		df = pd.concat([yes,no]).sample(frac = 1).reset_index(drop = True)
 		df['tf'] = st.split('_')[0]
-		
+		df = df[['ticker','dt','tf']]
 
 		return df
 
+	def run():
+		Main.check_directories()
+		#current_day = Data.format_date(yf.download(tickers = 'QQQ', period = '25y', group_by='ticker', interval = '1d', ignore_tz = True, progress = False, show_errors = False, threads = False, prepost = False).index[-1-Data.is_market_open()])
+		#current_minute = Data.format_date(yf.download(tickers = 'QQQ', period = '5d', group_by='ticker', interval = '1m', ignore_tz = True, progress = False, show_errors = False, threads = False, prepost = False).index[-1-Data.is_market_open()])
+		from Screener import Screener as screener
+		scan = screener.get('full',True)
+		batches = []
+		#for i in range(len(scan)):
+		#   ticker = scan[i]
+		#   batches.append([ticker, current_day, 'd'])
+		#   batches.append([ticker, current_minute, '1min'])
+		for i in range(len(scan)):
+			for tf in ['d','1min']: batches.append([scan[i],tf])
+		Data.pool(Data.update, batches)
+		if Data.get_config("Data identity") == 'laptop':
+			weekday = datetime.datetime.now().weekday()
+			if weekday == 4: Data.backup()
+			elif weekday == 5: Data.retrain_models()
+		Data.refill_backtest()
 
+	
 
 	def check_directories():
-		dirs = ['C:/Stocks/local','C:/Stocks/local/data','C:/Stocks/local/account','C:/Stocks/local/study','C:/Stocks/local/trainer','C:/Stocks/local/data/1min','C:/Stocks/local/data/d']
+		dirs = ['local','local/data','local/account','local/study','local/trainer','local/data/1min','local/data/d']
 		if not os.path.exists(dirs[0]): 
 			for d in dirs: os.mkdir(d)
-		if not os.path.exists("C:/Stocks/config.txt"): shutil.copyfile('C:/Stocks/sync/files/default_config.txt','C:/Stocks/config.txt')
+		if not os.path.exists("config.txt"): shutil.copyfile('sync/files/default_config.txt','config.txt')
 
 	def refill_backtest():
 		from Screener import Screener as screener
@@ -222,29 +249,29 @@ class Main:
 		date = Data.format_date(date)
 		add = pd.DataFrame({ 'ticker':[ticker], 'dt':[date], 'value':[val], 'required':[req] })
 		if ident == None: ident = Data.get_config('Data identity') + '_'
-		path = 'C:/Stocks/sync/database/' + ident + setup + '.feather'
+		path = 'sync/database/' + ident + setup + '.feather'
 		try: df = pd.read_feather(path)
 		except FileNotFoundError: df = pd.DataFrame()
 		df = pd.concat([df,add]).drop_duplicates(subset = ['ticker','dt'],keep = 'last').reset_index(drop = True)
 		df.to_feather(path)
 
 	def consolidate_database(): 
-		setups = Data.get_setups_list()
+		setups = Main.get_setups_list()
 		for setup in setups:
 			df = pd.DataFrame()
 			#for ident in ['ben_','desktop_','laptop_', 'ben_laptop_']:
 			for ident in ['desktop_','laptop_']:
 				try: 
-					df1 = pd.read_feather(f"C:/Stocks/sync/database/{ident}{setup}.feather").dropna()
+					df1 = pd.read_feather(f"sync/database/{ident}{setup}.feather").dropna()
 					df1['sindex'] = df1.index
 					df1['source'] = ident
 					df = pd.concat([df,df1]).reset_index(drop = True)
 				except FileNotFoundError: pass
-			df.to_feather(f"C:/Stocks/local/data/{setup}.feather")
+			df.to_feather(f"local/data/{setup}.feather")
 
 	def get_setups_list():
 		setups = []
-		path = "C:/Stocks/sync/database/"
+		path = "sync/database/"
 		dir_list = os.listdir(path)
 		for p in dir_list:
 			s = p.split('_')
@@ -256,16 +283,19 @@ class Main:
 					break
 			if use: setups.append(s)
 		return setups
-		
-		
+	
 
+	def mass_fetch(bar):
+		ticker,dt,tf,bars, npbars = bar
+		df = Data(ticker,dt,tf,bars = bars, npbars = npbars)
+		df.np()
 
 class Data:
 	
 	def update(self):
 		pass
 	
-	def __init__(self,ticker = 'QQQ',tf = 'd',dt = None,bars = 0,offset = 0,value = None, pm = True):
+	def __init__(self,ticker = 'QQQ',tf = 'd',dt = None,bars = 0,offset = 0,value = None, pm = True,np_bars = 50):
 		try:
 			if len(tf) == 1: tf = '1' + tf
 			dt = Main.format_date(dt)
@@ -274,8 +304,8 @@ class Data:
 			try: df = feather.read_feather(Main.data_path(ticker,tf)).set_index('datetime',drop = True)
 			except FileNotFoundError: raise TimeoutError
 			if df.empty: raise TimeoutError
-			if pm: 
-				pm_bar = pd.read_feather('C:/Stocks/sync/files/current_scan.feather').set_index('ticker').loc[ticker]
+			if pm and Main.is_pre_market(dt): 
+				pm_bar = pd.read_feather('sync/files/current_scan.feather').set_index('ticker').loc[ticker]
 				pm_price = pm_bar['pm change'] + df.iat[-1,3]
 				df = pd.concat([df,pd.DataFrame({'datetime': [datetime.datetime.now()], 'open': [pm_price],'high': [pm_price], 'low': [pm_price], 'close': [pm_price], 'volume': [pm_bar['pm volume']]}).set_index("datetime",drop = True)])
 			if dt != None:
@@ -297,12 +327,15 @@ class Data:
 		self.value = value
 		self.bars = bars
 		self.offset = offset
+		self.np_bars = np_bars
+		
 
 	def requirements(self):
 		pass
 		
-	def load_np(self,bars,standard = True,gpu = False):
+	def load_np(self,standard = True,gpu = False,double = False):
 		returns = []
+		bars = self.np_bars
 		try:
 			
 			df = self.df
@@ -313,7 +346,6 @@ class Data:
 			x = np.flip(x,0)
 			
 			d = np.zeros((x.shape[0]-1,x.shape[1]))
-			time.sleep(2)
 			for i in range(len(d)): #add ohlc
 				d[i] = x[i+1]/x[i,3] - 1
 			if partitions != 0:
@@ -322,13 +354,13 @@ class Data:
 						#x = x.reshape(1, 2, bars)
 						#x = torch.tensor(list(x), requires_grad=True).cuda()
 						#sequence2 = torch.tensor([1.0, 2.0, 2.5, 3.5], requires_grad=True).cuda()
-						pass
+						print('nice gpu code')
 					else:
 						x = d[i-bars:i]	
 						x = preprocessing.normalize(x,axis = 0)
 						if not standard: 
 							x = x[:,3]
-							x = np.column_stack((x, numpy.arange(x.shape[0])))
+							if double:x = np.column_stack((x, numpy.arange(  x.shape[0])))
 						returns.append([x,i])
 		except TimeoutError: 
 			pass
@@ -357,8 +389,7 @@ class Data:
 			returns.append([self.ticker,self.df.index[index],st,score])
 		self.score = returns
 		return returns
-	def get_scores(self):
-		return self.ticker, self.index, self.scores
+
 	def findex(self,dt):
 		dt = Main.format_date(dt)
 		if not isinstance(self,pd.DataFrame): df = self.df
@@ -376,8 +407,7 @@ class Data:
 		
 
 if __name__ == '__main__':
-	df = Data(dt = '2023-10-06')
-	print(df.df)
+	Main.run()
 	
 
 

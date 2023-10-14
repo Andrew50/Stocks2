@@ -1,6 +1,9 @@
 from argparse import ArgumentTypeError
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import models
+sys.path.append(Stocks2/backend')
+
+# Now, you can import the Match module
 import io
 import PIL
 import pathlib
@@ -98,6 +101,8 @@ class Main:
 		
 		return df
 
+	def train(st, use, epochs):
+		pass
 
 	def pool(deff, arg):
 		return list(tqdm(Pool().imap_unordered(deff, arg), total=len(arg)))
@@ -175,12 +180,11 @@ class Main:
 		df = pd.DataFrame({'ticker':screener.get('full', True)})
 		df['tf'] = 'd'
 		df['dt'] = None
-		df2 = df.copy()
-		df2['tf'] = '1min'
-		df = pd.concat([df,df2])
 		ds = Dataset(df)
 		ds.update()
-		print('finished')###
+		df['tf'] = '1min'
+		ds = Dataset(df)
+		ds.update()
 		ident =  Main.get_config("Data identity")
 		if ident == 'desktop' or ident == 'laptop':
 			weekday = datetime.datetime.now().weekday()
@@ -203,23 +207,23 @@ class Main:
 
 	def refill_backtest():
 		from Screener import Screener as screener
-		try:historical_setups = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+		try:historical_setups = pd.read_feather(r"local\study\historical_setups.feather")
 		except:historical_setups = pd.DataFrame()
-		if not os.path.exists("C:\Stocks\local\study\full_list_minus_annotated.feather"):
-			shutil.copy(r"C:\Stocks\sync\files\full_scan.feather",r"C:\Stocks\local\study\full_list_minus_annotated.feather")
+		if not os.path.exists("local\study\full_list_minus_annotated.feather"):
+			shutil.copy(r"sync\files\full_scan.feather",r"local\study\full_list_minus_annotated.feather")
 		while historical_setups.empty or (len(historical_setups[historical_setups["pre_annotation"] == ""]) < 2500):
-			full_list_minus_annotation = pd.read_feather(r"C:\Stocks\local\study\full_list_minus_annotated.feather").sample(frac=1)
+			full_list_minus_annotation = pd.read_feather(r"local\study\full_list_minus_annotated.feather").sample(frac=1)
 			screener.run(ticker=full_list_minus_annotation[:20]['ticker'].tolist(), fpath=0)
 			full_list_minus_annotation = full_list_minus_annotation[20:].reset_index(drop=True)
-			full_list_minus_annotation.to_feather(r"C:\Stocks\local\study\full_list_minus_annotated.feather")
-			historical_setups = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+			full_list_minus_annotation.to_feather(r"local\study\full_list_minus_annotated.feather")
+			historical_setups = pd.read_feather(r"local\study\historical_setups.feather")
 
 	def backup():
 		date = datetime.date.today()
-		src = r'C:/Stocks'
-		dst = r'C:/Backups/' + str(date)
+		src = ''#r':/Stocks'
+		dst = r'local/backups/' + str(date)
 		shutil.copytree(src, dst)
-		path = "C:/Backups/"
+		path = "local/backups/"
 		dir_list = os.listdir(path)
 		for b in dir_list:
 			dt = datetime.datetime.strptime(b, '%Y-%m-%d')
@@ -291,7 +295,6 @@ class Dataset:
 		dfs = []
 		returns = []
 		for bar in lis:
-			#print(len(bar))
 			arrays = bar[1]
 			df = bar[0]
 			dfs.append(df)
@@ -313,17 +316,18 @@ class Dataset:
 	def try_pool(func, args):
 		start = datetime.datetime.now()
 		if current_process().name == 'MainProcess':
-			with Pool() as pool:
-				returns = pool.imap_unordered(func, args)
-				pool.close()
-				pool.join()
+			returns = Main.pool(func,args)
+			#with Pool() as pool:
+				#returns = pool.imap_unordered(func, args)
+				#pool.close()
+				#pool.join()
 		else:
 			returns = [func(**arg) for arg in args]
 		print(f'{datetime.datetime.now() - start}')
 		return returns
 
 	def train(self, st, percent_yes, epochs):
-		df = pd.read_feather('C:/Stocks/local/data/' + st + '.feather')
+		df = pd.read_feather('local/data/' + st + '.feather')
 		ones = len(df[df['value'] == 1])
 		if ones < 150:
 			print(f'{st} cannot be trained with only {ones} positives')
@@ -336,7 +340,7 @@ class Dataset:
 		model.compile(loss='sparse_categorical_crossentropy',
 					  optimizer=Adam(learning_rate=1e-3), metrics=['accuracy'])
 		model.fit(x, y, epochs=epochs, batch_size=64, validation_split=.2,)
-		model.save('C:/Stocks/sync/models/model_' + st)
+		model.save('sync/models/model_' + st)
 		tensorflow.keras.backend.clear_session()
 
 	def init_worker(pack):
@@ -347,19 +351,6 @@ class Dataset:
 		bars, offset, value, pm, np_bars = other
 		# needs to be fixed becaujse m
 		return Data(ticker, tf, dt, bars, offset, value, pm, np_bars)
-	
-	def data_generator(self):
-		def create_data_object(i):
-			data_obj = Data(ticker=self.request['ticker'].iloc[i], tf=self.tf, dt=self.request['dt'].iloc[i], bars=self.bars, offset=self.offset, value=self.value, pm=self.pm, np_bars=self.np_bars)
-			return data_obj
-
-		# Use a ThreadPoolExecutor for parallel processing
-		with concurrent.futures.ThreadPoolExecutor(max_workers=self.num_cores) as executor:
-			# Create data objects in parallel
-			data_objects = list(executor.map(create_data_object, range(len(self.request))))
-
-		for data_obj in data_objects:
-			yield data_obj
 
 	def __init__(self, request=pd.DataFrame(), bars=0, offset=0, value=None, pm=True, np_bars=50):
 		from Screener import Screener as screener
@@ -370,15 +361,15 @@ class Dataset:
 			request['tf'] = 'd'
 		other = (bars, offset, value, pm, np_bars)
 		arglist = [[request.iloc[i], other] for i in range(len(request))]
-		#self.dfs = Dataset.try_pool(self,Dataset.init_worker, arglist)
+		self.dfs = Dataset.try_pool(Dataset.init_worker, arglist)
 		self.num_cores = 12
 		self.request = request
 		self.value = value
 		self.bars = bars
 		self.offset = offset
 		self.np_bars = np_bars
-		self.dfs = Dataset.data_generator(self)
-		#self.len = len(self.dfs)
+		#self.dfs = Dataset.data_generator(self)
+		self.len = len(self.dfs)
 		
 		
 
@@ -416,7 +407,6 @@ class Data:
 			if tf == '1min': pass
 			elif tf == 'd': df.index = df.index.normalize() + pd.Timedelta(minutes = 570)
 			df = df.reset_index()
-			#print(df)
 			feather.write_feather(df,path)
 
 	def __init__(self, ticker='QQQ', tf='d', dt=None, bars=0, offset=0, value=None, pm=True, np_bars=50):
@@ -567,4 +557,5 @@ class Data:
 		return i
 
 if __name__ == '__main__':
+	Main.backup()
 	Main.run()

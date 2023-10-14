@@ -467,7 +467,7 @@ class Data:
 						# x = torch.tensor(list(x), requires_grad=True).cuda()
 						# sequence2 = torch.tensor([1.0, 2.0, 2.5, 3.5], requires_grad=True).cuda()
 						print('nice gpu code')
-					elif type == 'dtw':
+					else:
 						x = d[i-bars:i]
 						x = preprocessing.normalize(x, axis=0)
 						if type != 'ml':

@@ -22,7 +22,7 @@ np_bars = 10
 class Match:
 
     def load(tf):
-        ticker_list = screener.get('full')[:200]
+        ticker_list = screener.get('full')[:50]
         df = pd.DataFrame({'ticker': ticker_list})
         df['dt'] = None
         df['tf'] = tf
@@ -52,7 +52,7 @@ class Match:
         top_scores = Match.run(ds, ticker, dt, tf)
         formatted_top_scores = []
         for score, ticker, index in top_scores:
-            formatted_top_scores.append([ticker,Data(ticker).df.index[index],score])
+            formatted_top_scores.append([score,ticker,Data(ticker).df.index[index]])
         return formatted_top_scores
 
 
@@ -62,6 +62,6 @@ if __name__ == '__main__':
     dt = '2023-10-03'  # input('input date: ')
     tf = 'd'  # int(input('input tf: '))
     top_scores = Match.compute([ticker,dt,tf])
-
-    for score, ticker, index in top_scores:
-        print(f'{ticker} {Data(ticker).df.index[index]} {score}')
+    for score,ticker,date in top_scores:
+    #for score, ticker, index in top_scores:
+        print(f'{ticker} {date} {score}')

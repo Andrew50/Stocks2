@@ -386,11 +386,17 @@ class Dataset:
 				returns += ds
 		self.dfs = dfs
 		self.np = returns
-		self.raw_np =   
+		
 
 
-
+		if type == 'ml':
+			self.raw_np =   [ds for df,ds in returns]
+			self.y_np = np.array([df.value for df in self.dfs])
+			return self.raw_np, self.y_np
 		return returns
+		
+	
+		
    # def __getattr__(self, name):
  #   lis = [Data.name]
  #   return []
@@ -407,7 +413,7 @@ class Dataset:
 			print(f'{st} cannot be trained with only {ones} positives')
 			return
 		x = self.raw_np
-		y = self.np_y
+		y = self.y_np
 
 		model = Sequential([Bidirectional(LSTM(64, input_shape=(x.shape[1], x.shape[2]), return_sequences=True,),), Dropout(
 			0.2), Bidirectional(LSTM(32)), Dense(3, activation='softmax'),])

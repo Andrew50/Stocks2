@@ -31,10 +31,8 @@ class Match:
         return df
 
     def run(ds, ticker, dt, tf):
-        y = Data(ticker, tf, dt,bars = np_bars+1).load_np('dtw',np_bars)
+        y = Data(ticker, tf, dt,bars = np_bars+1).load_np('dtw',np_bars,True)
         y=y[0][0]
-        
-        # = [bar[0] for bar in y]
         arglist = [[x, y, tick, index] for x, tick, index in ds]
         scores = Main.pool(Match.worker, arglist)
         scores.sort(key=lambda x: x[2])
@@ -42,7 +40,6 @@ class Match:
 
     def worker(bar):
         x, y, ticker, index = bar
-        #print(f'[{x} {y}]')      
         distance = sfastdtw(x, y, 1, dist=euclidean)
         return [distance, ticker, index]
 

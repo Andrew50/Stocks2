@@ -4,6 +4,7 @@ from tensorflow.keras import models
 import io
 import PIL
 import pathlib
+import concurrent.futures
 from multiprocessing.pool import Pool
 from bisect import insort_right
 import numpy as np
@@ -94,15 +95,9 @@ class Main:
 		df = pd.concat([yes, no]).sample(frac=1).reset_index(drop=True)
 		df['tf'] = st.split('_')[0]
 		df = df[['ticker', 'dt', 'tf']]
-		print(len(df))
 		
 		return df
 
-	def train(st, use, epochs):
-		df = Main.sample(st, use)
-		sample = Dataset(df)
-		sample.load_np('ml',80)
-		sample.train(st,.08,200) 
 
 	def pool(deff, arg):
 		return list(tqdm(Pool().imap_unordered(deff, arg), total=len(arg)))
@@ -127,9 +122,7 @@ class Main:
 	def data_path(ticker, tf):
 		if 'd' in tf or 'w' in tf: path = 'd/'
 		else: path = '1min/'
-		return 'C:/Stocks/local/data/' + path + ticker + '.feather'
-
-
+		return 'local/data/' + path + ticker + '.feather'
 
 	def is_market_open():  # Change to a boolean at some point
 		if (datetime.datetime.now().weekday() >= 5):
@@ -176,24 +169,31 @@ class Main:
 		except: pass
 		return value
 
-
-
 	def run():
 		Main.check_directories()
 		from Screener import Screener as screener
-		scan = screener.get('full', True)
-		batches = []
-		for i in range(len(scan)):
-			for tf in ['d', '1min']:
-				batches.append([scan[i], tf])
-		Main.pool(Data.update, batches)
-		ident =  Data.get_config("Data identity")
+		df = pd.DataFrame({'ticker':screener.get('full', True)})
+		df['tf'] = 'd'
+		df['dt'] = None
+		df2 = df.copy()
+		df2['tf'] = '1min'
+		df = pd.concat([df,df2])
+		ds = Dataset(df)
+		ds.update()
+		print('finished')###
+		ident =  Main.get_config("Data identity")
 		if ident == 'desktop' or ident == 'laptop':
 			weekday = datetime.datetime.now().weekday()
 			if weekday == 4:
 				Data.backup()
-				Data.retrain_models()
-		Data.refill_backtest()
+				use = .08
+				epochs = 200
+				for st in Main.get_setups_list():
+					df = Main.sample(st, use)
+					sample = Dataset(df)
+					sample.load_np('ml',80)
+					sample.train(st,use,epochs) 
+		Main.refill_backtest()
 
 	def check_directories():
 		dirs = ['local', 'local/data', 'local/account', 'local/study','local/trainer', 'local/data/1min', 'local/data/d']
@@ -268,6 +268,12 @@ class Main:
 
 
 class Dataset:
+	def update_worker(df):
+		df.update()
+
+	def update(self):
+		#return Pool().imap(Dataset.update_worker,self.dfs)
+		return Dataset.try_pool(Dataset.update_worker,self.dfs)
 	
 	def load_image (self,i):
 		pass
@@ -281,7 +287,7 @@ class Dataset:
 		self.np_type = type
 		self.np_bars = bars
 		arglist = [[df, type, bars] for df in self.dfs]
-		lis = Dataset.try_pool(self, Dataset.np_worker, arglist)
+		lis = Dataset.try_pool(Dataset.np_worker, arglist)
 		dfs = []
 		returns = []
 		for bar in lis:
@@ -304,10 +310,17 @@ class Dataset:
 			return self.raw_np, self.y_np
 		return returns
 
-	def try_pool(self, func, args):
+	def try_pool(func, args):
+		start = datetime.datetime.now()
 		if current_process().name == 'MainProcess':
-			return Main.pool(func, args)
-		return [func(**arg) for arg in args]
+			with Pool() as pool:
+				returns = pool.imap_unordered(func, args)
+				pool.close()
+				pool.join()
+		else:
+			returns = [func(**arg) for arg in args]
+		print(f'{datetime.datetime.now() - start}')
+		return returns
 
 	def train(self, st, percent_yes, epochs):
 		df = pd.read_feather('C:/Stocks/local/data/' + st + '.feather')
@@ -334,6 +347,19 @@ class Dataset:
 		bars, offset, value, pm, np_bars = other
 		# needs to be fixed becaujse m
 		return Data(ticker, tf, dt, bars, offset, value, pm, np_bars)
+	
+	def data_generator(self):
+		def create_data_object(i):
+			data_obj = Data(ticker=self.request['ticker'].iloc[i], tf=self.tf, dt=self.request['dt'].iloc[i], bars=self.bars, offset=self.offset, value=self.value, pm=self.pm, np_bars=self.np_bars)
+			return data_obj
+
+		# Use a ThreadPoolExecutor for parallel processing
+		with concurrent.futures.ThreadPoolExecutor(max_workers=self.num_cores) as executor:
+			# Create data objects in parallel
+			data_objects = list(executor.map(create_data_object, range(len(self.request))))
+
+		for data_obj in data_objects:
+			yield data_obj
 
 	def __init__(self, request=pd.DataFrame(), bars=0, offset=0, value=None, pm=True, np_bars=50):
 		from Screener import Screener as screener
@@ -344,13 +370,17 @@ class Dataset:
 			request['tf'] = 'd'
 		other = (bars, offset, value, pm, np_bars)
 		arglist = [[request.iloc[i], other] for i in range(len(request))]
-		self.dfs = Dataset.try_pool(self,Dataset.init_worker, arglist)
+		#self.dfs = Dataset.try_pool(self,Dataset.init_worker, arglist)
+		self.num_cores = 12
 		self.request = request
-		self.len = len(self.dfs)
 		self.value = value
 		self.bars = bars
 		self.offset = offset
 		self.np_bars = np_bars
+		self.dfs = Dataset.data_generator(self)
+		#self.len = len(self.dfs)
+		
+		
 
 
 class Data:
@@ -358,9 +388,10 @@ class Data:
 	def update(self):
 		ticker = self.ticker
 		tf = self.tf
+		path = self.path
 		exists = True
 		try:
-			df = feather.read_feather(Data.data_path(ticker,tf)).set_index('datetime',drop = True)######
+			df = self.df
 			last_day = self.df.index[-1] 
 		except: exists = False
 		if tf == 'd':
@@ -385,20 +416,21 @@ class Data:
 			if tf == '1min': pass
 			elif tf == 'd': df.index = df.index.normalize() + pd.Timedelta(minutes = 570)
 			df = df.reset_index()
-			feather.write_feather(df,Data.data_path(ticker,tf))
+			#print(df)
+			feather.write_feather(df,path)
 
 	def __init__(self, ticker='QQQ', tf='d', dt=None, bars=0, offset=0, value=None, pm=True, np_bars=50):
 		try:
 			if len(tf) == 1:
 				tf = '1' + tf
 			dt = Main.format_date(dt)
+			self.path = Main.data_path(ticker, tf)
 			if 'd' in tf or 'w' in tf:
 				base_tf = '1d'
 			else:
 				base_tf = '1min'
 			try:
-				df = feather.read_feather(Main.data_path(
-					ticker, tf)).set_index('datetime', drop=True)
+				df = feather.read_feather(self.path).set_index('datetime', drop=True)
 			except FileNotFoundError:
 				raise TimeoutError
 			if df.empty:
@@ -440,7 +472,7 @@ class Data:
 	def requirements(self):
 		pass
 
-	def load_np(self, type, bars):
+	def load_np(self, type, bars,debug = False):
 		if type not in ('dtw','ml','gpu'):
 			raise ArgumentTypeError
 		returns = []
@@ -519,7 +551,7 @@ class Data:
 			df = self.df
 		else:
 			df = self
-		i = int(len(df)/2)
+		i = int(len(df)/2)		
 		k = int(i/2)
 		while k != 0:
 			date = df.index[i].to_pydatetime()
@@ -533,10 +565,6 @@ class Data:
 		while df.index[i].to_pydatetime() > dt:
 			i -= 1
 		return i
-
-
-
-
 
 if __name__ == '__main__':
 	Main.run()

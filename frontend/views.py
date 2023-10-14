@@ -1,7 +1,11 @@
 from flask import Blueprint, render_template, request, redirect, url_for
 import sys
 import os
-from Stocks2.backend.Match import Match
+import sys
+sys.path.append('C:/Stocks2/backend')
+
+# Now, you can import the Match module
+from Match import Match
 
 # # Get the absolute path of the directory containing the current script (frontend/views.py)
 # current_script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -40,6 +44,7 @@ def home():
         if "" in data_in:
             return render_template("index2.html")
         else:
+            global data_out
             data_out = Match.compute(data_in)
             return redirect(url_for("views.Return"))
     else:

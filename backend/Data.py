@@ -106,6 +106,8 @@ class Main:
 	def mass_train(st, use, epochs):
 		df = sample(st, use)
 		sample = Dataset(df)
+		sample.load_np('ml',80)
+		sample.train(st
 
 	def pool(deff, arg):
 		return list(tqdm(Pool().imap_unordered(deff, arg), total=len(arg)))
@@ -361,6 +363,9 @@ class Main:
 
 
 class Dataset:
+	
+	def load_image (self,i):
+		pass
 
 	def np_worker(bar):
 		df, type, bars = bar
@@ -375,11 +380,16 @@ class Dataset:
 		print(lis)
 		dfs = []
 		returns = []
-		for df, ds in lis:
-			dfs.append(df)
-			returns += ds
+		for bar in lis:
+			for df, ds in bar:
+				dfs.append(df)
+				returns += ds
 		self.dfs = dfs
 		self.np = returns
+		self.raw_np =   
+
+
+
 		return returns
    # def __getattr__(self, name):
  #   lis = [Data.name]
@@ -396,7 +406,7 @@ class Dataset:
 		if ones < 150:
 			print(f'{st} cannot be trained with only {ones} positives')
 			return
-		x = self.np
+		x = self.raw_np
 		y = self.np_y
 
 		model = Sequential([Bidirectional(LSTM(64, input_shape=(x.shape[1], x.shape[2]), return_sequences=True,),), Dropout(

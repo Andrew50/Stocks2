@@ -1,5 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for
+import sys
+import sys
 
+import sys
+sys.path.append('C:/Stocks2/backend/Match.py')
+import Match
 admin = "dog1"
 adminpswd = "dog1"
 

@@ -41,18 +41,16 @@ from scipy.spatial.distance import euclidean
 class Match:
 
     def load(tf):
-        ticker_list = screener.get('full')
+        ticker_list = screener.get('full')[:100]
         df = pd.DataFrame({'ticker': ticker_list})
         df['dt'] = None
         df['tf'] = tf
-        print('1')
         ds = Dataset(df)
-        print('2')
-        df = ds.load_np()
+        df = ds.load_np('dtw',50)
         return df
 
     def run(ds, ticker, dt, tf):
-        y = Data(ticker, tf, dt).load_np()[0]
+        y = Data(ticker, tf, dt).load_np('dtw',50)[0][0]
         arglist = [[x, y, ticker, index] for index, x in ds]
         scores = Main.pool(Match.worker, arglist)
         scores.sort(key=lambda x: x[2])
@@ -60,11 +58,12 @@ class Match:
 
     def worker(bar):
         x, y, ticker, index = bar
+        #print(f'[{x} {y}]')      
         distance = sfastdtw(x, y, 1, dist=euclidean)
         return [distance, ticker, index]
 
 
-if __name__ == '__name__':
+if __name__ == '__main__':
 
     ticker = 'JBL'  # input('input ticker: ')
     dt = '2023-10-03'  # input('input date: ')

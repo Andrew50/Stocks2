@@ -15,28 +15,9 @@ import torch
 from tqdm import tqdm
 from sfastdtw import sfastdtw
 from scipy.spatial.distance import euclidean
-# from soft_dtw_cuda.soft_dtw_cuda import SoftDTW
 
-# Create the sequences
-# batch_size, len_x, len_y, dims = 8, 15, 12, 5
-# x = torch.rand((batch_size, len_x, dims), requires_grad=True)
-# y = torch.rand((batch_size, len_y, dims))
-# Transfer tensors to the GPU
-# x = x.cuda()
-# y = y.cuda()
 
-# Create the "criterion" object
-# sdtw = SoftDTW(use_cuda=True, gamma=0.1)
-
-# Compute the loss value
-# loss = sdtw(x, y)  # Just like any torch.nn.xyzLoss()
-
-# Aggregate and call backward()
-# loss.mean().backward()
-# from Dtw import dtw as dtw
-# import cupy as cp
-# cp.cuda.Device(0).use()
-
+np_bars = 10
 
 class Match:
 
@@ -46,11 +27,11 @@ class Match:
         df['dt'] = None
         df['tf'] = tf
         ds = Dataset(df)
-        df = ds.load_np('dtw',50)
+        df = ds.load_np('dtw',np_bars)
         return df
 
     def run(ds, ticker, dt, tf):
-        y = Data(ticker, tf, dt).load_np('dtw',50)[0][0]
+        y = Data(ticker, tf, dt).load_np('dtw',np_bars)[0][0]
         arglist = [[x, y, ticker, index] for index, x in ds]
         scores = Main.pool(Match.worker, arglist)
         scores.sort(key=lambda x: x[2])
@@ -76,6 +57,3 @@ if __name__ == '__main__':
 
         print(f'{ticker} {Data(ticker).df.index[index]} {score}')
     print(f'completed in {datetime.datetime.now() - start}')
-    # lis.append(pyts.metrics.dtw(x,y))
-    # lis.append(sax(x, y))
-    # lis.append( dtw(x, y, method='sakoechiba', options={'window_size': 0.5}))

@@ -103,11 +103,11 @@ class Main:
 		df = df[['ticker', 'dt', 'tf']]
 		return df
 
-	def mass_train(st, use, epochs):
+	def train(st, use, epochs):
 		df = sample(st, use)
 		sample = Dataset(df)
 		sample.load_np('ml',80)
-		sample.train(st)
+		sample.train(st,.08,200) 
 
 	def pool(deff, arg):
 		return list(tqdm(Pool().imap_unordered(deff, arg), total=len(arg)))
@@ -134,24 +134,7 @@ class Main:
 		else: path = '1min/'
 		return 'local/data/' + path + ticker + '.feather'
 
-	def train(st, percent_yes, epochs):
-		df = pd.read_feather('local/data/' + st + '.feather')
-		ones = len(df[df['value'] == 1])
-		if ones < 150:
-			print(f'{st} cannot be trained with only {ones} positives')
-			return
-		df = Main.sample(st, percent_yes)
-		print(df)
-		arglist = [df.iloc[i] for i in range(len(df))]
-		dfs = Main.pool(Main.worker2, arglist)
 
-		model = Sequential([Bidirectional(LSTM(64, input_shape=(x.shape[1], x.shape[2]), return_sequences=True,),), Dropout(
-			0.2), Bidirectional(LSTM(32)), Dense(3, activation='softmax'),])
-		model.compile(loss='sparse_categorical_crossentropy',
-					  optimizer=Adam(learning_rate=1e-3), metrics=['accuracy'])
-		model.fit(x, y, epochs=epochs, batch_size=64, validation_split=.2,)
-		model.save('sync/models/model_' + st)
-		tensorflow.keras.backend.clear_session()
 
 	def is_market_open():  # Change to a boolean at some point
 		if (datetime.datetime.now().weekday() >= 5):
@@ -165,58 +148,12 @@ class Main:
 			return True
 		return False
 
-	# worker for the main fucntion. this will be multiprcoessed by main.
-	def worker(path):
-		try:
-			with open(path, 'rb') as file:
-				return np.load(file, allow_pickle=True)
-		except:
-			pass
-
-	# this is for when you just want to pull the df for example when doing ml
-	def fast_get(tickers, tf='d'):
-		arglist = [f'local/data/{tf}/{ticker}.npy' for ticker in tickers]
-		dfs = Main.pool(Main.worker, arglist)
-		return dfs
-
 	def load_model(st):
 		start = datetime.datetime.now()
 		model = models.load_model('sync/models/model_' + st)
 		print(f'{st} model loaded in {datetime.datetime.now() - start}')
 		return model
 
-	def score_worker(bar):
-
-		dfs, st, threshold = bar
-		model = Main.load_model(st)
-		returns = []
-		for df in dfs:
-			scores = df.load_score(st, threshold)
-			for bar in [b for b in scores if b[3] > threshold]:
-				returns += bar
-		return returns
-
-	def worker2(bar):
-		ticker, dt, tf = bar
-		start = datetime.datetime.now()
-		bars = 50
-		if dt == None:
-			bars = 0
-		df = Data(ticker, tf, dt, bars=bars)
-		tim = (datetime.datetime.now() - start)
-		start = datetime.datetime.now()
-
-		df.np = df.load_np(bars)
-		return df
-
-	def score_dataset(df, sts, threshold=None):
-		arglist = [df.iloc[i] for i in range(len(df))]
-		dfs = Main.pool(Main.worker2, arglist)
-		if threshold == None:
-			threshold = Main.get_config('Screener threshold')
-		arglist = [[dfs, st, threshold] for st in sts]
-		setups = Main.pool(Main.score_worker, arglist)
-		return setups
 
 	def get_config(name):
 		s = open("config.txt", "r").read()
@@ -240,10 +177,8 @@ class Main:
 		if not found:
 			raise Exception(str(f'{trait} not found in config'))
 		value = line.split('=')[1].replace(' ', '')
-		try:
-			value = float(value)
-		except:
-			pass
+		try: value = float(value)
+		except: pass
 		return value
 
 
@@ -385,20 +320,12 @@ class Dataset:
 				returns += ds
 		self.dfs = dfs
 		self.np = returns
-		
-
-
 		if type == 'ml':
 			self.raw_np =   [ds for df,ds in returns]
 			self.y_np = np.array([df.value for df in self.dfs])
 			return self.raw_np, self.y_np
 		return returns
 		
-	
-		
-   # def __getattr__(self, name):
- #   lis = [Data.name]
- #   return []
 
 	def try_pool(self, func, args):
 		if current_process().name == 'MainProcess':
@@ -450,8 +377,6 @@ class Dataset:
 
 
 class Data:
-	
-	
 
 	def update(self):
 		ticker = self.ticker

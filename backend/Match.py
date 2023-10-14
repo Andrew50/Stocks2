@@ -31,7 +31,9 @@ class Match:
         return df
 
     def run(ds, ticker, dt, tf):
-        y = Data(ticker, tf, dt).load_np('dtw',np_bars)[0][0]
+        y = Data(ticker, tf, dt).load_np('dtw',np_bars)
+        print(y)
+        time.sleep(5)
         arglist = [[x, y, ticker, index] for index, x in ds]
         scores = Main.pool(Match.worker, arglist)
         scores.sort(key=lambda x: x[2])

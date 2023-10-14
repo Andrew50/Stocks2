@@ -372,7 +372,6 @@ class Dataset:
 		self.np_bars = bars
 		arglist = [[df, type, bars] for df in self.dfs]
 		lis = Dataset.try_pool(self, Dataset.np_worker, arglist)
-		print(lis)
 		dfs = []
 		returns = []
 		for df, ds in lis:

@@ -23,7 +23,10 @@ def home():
         ticker = request.form["ticker"]
         dt = request.form["dt"]
         timeframe = request.form["timeframe"]
-        if timeframe == "" or dt =="" or timeframe == "":
+        #render waiting screen
+        #function
+        #Return and post list onto html
+        if ticker == "" or dt =="" or timeframe == "":
             return render_template("index2.html")
         else:
             return redirect(url_for("views.Return"))

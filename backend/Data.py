@@ -305,6 +305,7 @@ class Dataset:
 	def np_worker(bar):
 		df, type, bars = bar
 		ds = df.load_np(type, bars)
+		print(type(ds))
 		return df, ds
 
 	def load_np(self, type, bars):
@@ -315,6 +316,7 @@ class Dataset:
 		dfs = []
 		returns = []
 		for bar in lis:
+			
 			for df, ds in bar:
 				dfs.append(df)
 				returns += ds
@@ -448,7 +450,7 @@ class Data:
 			if 'w' in tf:
 				df = pd.concat([df, last_bar])
 			df = df.dropna()[-bars:]
-		except TimeoutError:
+		except AttributeError:
 			df = pd.DataFrame()
 		self.df = df
 		self.len = len(df)

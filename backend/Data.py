@@ -124,7 +124,7 @@ class Main:
 	def data_path(ticker, tf):
 		if 'd' in tf or 'w' in tf: path = 'd/'
 		else: path = '1min/'
-		return 'local/data/' + path + ticker + '.feather'
+		return 'C:/Stocks/local/data/' + path + ticker + '.feather'
 
 
 

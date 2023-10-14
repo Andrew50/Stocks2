@@ -1,6 +1,10 @@
+import os, sys
+src = os.path.dirname(os.path.abspath(__file__))
+parent = src.split('Stocks2')[0]
+sys.path.append(parent + (r'Stocks2/'))
 from locale import normalize
 from multiprocessing.pool import Pool
-from Data import Main, Data, Dataset
+from backend.Data import Main, Data, Dataset
 import numpy as np
 import pandas as pd
 import datetime
@@ -51,7 +55,6 @@ class Match:
         for score, ticker, index in top_scores:
             formatted_top_scores.append([score,ticker,Data(ticker).df.index[index]])
         return formatted_top_scores
-
 
 if __name__ == '__main__':
 

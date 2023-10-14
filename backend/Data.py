@@ -282,10 +282,12 @@ class Dataset:
 		dfs = []
 		returns = []
 		for bar in lis:
-			print(bar[0])
-			for df, ds in bar:
-				dfs.append(df)
-				returns.append(ds)
+			print(len(bar))
+			arrays = bar[1]
+			df = bar[0]
+			dfs.append(df)
+			for df, index in arrays:
+				returns.append([df,index])
 		self.dfs = dfs
 		self.np = returns
 		if type == 'ml':

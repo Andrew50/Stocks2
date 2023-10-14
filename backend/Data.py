@@ -94,6 +94,8 @@ class Main:
 		df = pd.concat([yes, no]).sample(frac=1).reset_index(drop=True)
 		df['tf'] = st.split('_')[0]
 		df = df[['ticker', 'dt', 'tf']]
+		print(len(df))
+		
 		return df
 
 	def train(st, use, epochs):

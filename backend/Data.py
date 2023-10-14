@@ -55,16 +55,8 @@ import pytz
 import tensorflow
 import random
 warnings.filterwarnings("ignore")
-
-
-# models import load_model
-
-
 	
 class Main:
-	
-	
-	
 
 	def sample(st, use):
 		Main.consolidate_database()
@@ -104,7 +96,7 @@ class Main:
 		return df
 
 	def train(st, use, epochs):
-		df = sample(st, use)
+		df = Main.sample(st, use)
 		sample = Dataset(df)
 		sample.load_np('ml',80)
 		sample.train(st,.08,200) 
@@ -185,57 +177,39 @@ class Main:
 
 	def run():
 		Main.check_directories()
-		# current_day = Data.format_date(yf.download(tickers = 'QQQ', period = '25y', group_by='ticker', interval = '1d', ignore_tz = True, progress = False, show_errors = False, threads = False, prepost = False).index[-1-Data.is_market_open()])
-		# current_minute = Data.format_date(yf.download(tickers = 'QQQ', period = '5d', group_by='ticker', interval = '1m', ignore_tz = True, progress = False, show_errors = False, threads = False, prepost = False).index[-1-Data.is_market_open()])
 		from Screener import Screener as screener
 		scan = screener.get('full', True)
 		batches = []
-		# for i in range(len(scan)):
-		#   ticker = scan[i]
-		#   batches.append([ticker, current_day, 'd'])
-		#   batches.append([ticker, current_minute, '1min'])
 		for i in range(len(scan)):
 			for tf in ['d', '1min']:
 				batches.append([scan[i], tf])
-		Data.pool(Data.update, batches)
-		if Data.get_config("Data identity") == 'laptop':
+		Main.pool(Data.update, batches)
+		ident =  Data.get_config("Data identity")
+		if ident == 'desktop' or ident == 'laptop':
 			weekday = datetime.datetime.now().weekday()
 			if weekday == 4:
 				Data.backup()
-			elif weekday == 5:
 				Data.retrain_models()
 		Data.refill_backtest()
 
 	def check_directories():
-		dirs = ['local', 'local/data', 'local/account', 'local/study',
-				'local/trainer', 'local/data/1min', 'local/data/d']
-		if not os.path.exists(dirs[0]):
-			for d in dirs:
-				os.mkdir(d)
-		if not os.path.exists("config.txt"):
-			shutil.copyfile('sync/files/default_config.txt', 'config.txt')
+		dirs = ['local', 'local/data', 'local/account', 'local/study','local/trainer', 'local/data/1min', 'local/data/d']
+		if not os.path.exists(dirs[0]): 
+			for d in dirs: os.mkdir(d)
+		if not os.path.exists("config.txt"): shutil.copyfile('sync/files/default_config.txt', 'config.txt')
 
 	def refill_backtest():
 		from Screener import Screener as screener
-		try:
-			historical_setups = pd.read_feather(
-				r"C:\Stocks\local\study\historical_setups.feather")
-		except:
-			historical_setups = pd.DataFrame()
+		try:historical_setups = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+		except:historical_setups = pd.DataFrame()
 		if not os.path.exists("C:\Stocks\local\study\full_list_minus_annotated.feather"):
-			shutil.copy(r"C:\Stocks\sync\files\full_scan.feather",
-						r"C:\Stocks\local\study\full_list_minus_annotated.feather")
+			shutil.copy(r"C:\Stocks\sync\files\full_scan.feather",r"C:\Stocks\local\study\full_list_minus_annotated.feather")
 		while historical_setups.empty or (len(historical_setups[historical_setups["pre_annotation"] == ""]) < 2500):
-			full_list_minus_annotation = pd.read_feather(
-				r"C:\Stocks\local\study\full_list_minus_annotated.feather").sample(frac=1)
-			screener.run(
-				ticker=full_list_minus_annotation[:20]['ticker'].tolist(), fpath=0)
-			full_list_minus_annotation = full_list_minus_annotation[20:].reset_index(
-				drop=True)
-			full_list_minus_annotation.to_feather(
-				r"C:\Stocks\local\study\full_list_minus_annotated.feather")
-			historical_setups = pd.read_feather(
-				r"C:\Stocks\local\study\historical_setups.feather")
+			full_list_minus_annotation = pd.read_feather(r"C:\Stocks\local\study\full_list_minus_annotated.feather").sample(frac=1)
+			screener.run(ticker=full_list_minus_annotation[:20]['ticker'].tolist(), fpath=0)
+			full_list_minus_annotation = full_list_minus_annotation[20:].reset_index(drop=True)
+			full_list_minus_annotation.to_feather(r"C:\Stocks\local\study\full_list_minus_annotated.feather")
+			historical_setups = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
 
 	def backup():
 		date = datetime.date.today()
@@ -251,17 +225,12 @@ class Main:
 
 	def add_setup(ticker, date, setup, val, req, ident=None):
 		date = Data.format_date(date)
-		add = pd.DataFrame({'ticker': [ticker], 'dt': [
-			date], 'value': [val], 'required': [req]})
-		if ident == None:
-			ident = Data.get_config('Data identity') + '_'
+		add = pd.DataFrame({'ticker': [ticker], 'dt': [date], 'value': [val], 'required': [req]})
+		if ident == None:ident = Data.get_config('Data identity') + '_'
 		path = 'sync/database/' + ident + setup + '.feather'
-		try:
-			df = pd.read_feather(path)
-		except FileNotFoundError:
-			df = pd.DataFrame()
-		df = pd.concat([df, add]).drop_duplicates(
-			subset=['ticker', 'dt'], keep='last').reset_index(drop=True)
+		try:df = pd.read_feather(path)
+		except FileNotFoundError:df = pd.DataFrame()
+		df = pd.concat([df, add]).drop_duplicates(subset=['ticker', 'dt'], keep='last').reset_index(drop=True)
 		df.to_feather(path)
 
 	def consolidate_database():
@@ -271,13 +240,11 @@ class Main:
 			# for ident in ['ben_','desktop_','laptop_', 'ben_laptop_']:
 			for ident in ['desktop_', 'laptop_']:
 				try:
-					df1 = pd.read_feather(
-						f"sync/database/{ident}{setup}.feather").dropna()
+					df1 = pd.read_feather(f"sync/database/{ident}{setup}.feather").dropna()
 					df1['sindex'] = df1.index
 					df1['source'] = ident
 					df = pd.concat([df, df1]).reset_index(drop=True)
-				except FileNotFoundError:
-					pass
+				except FileNotFoundError:pass
 			df.to_feather(f"local/data/{setup}.feather")
 
 	def get_setups_list():
@@ -315,6 +282,8 @@ class Dataset:
 		lis = Dataset.try_pool(self, Dataset.np_worker, arglist)
 		dfs = []
 		returns = []
+		print(lis[0])
+		print(lis[0][0])
 		for bar in lis:
 			
 			for df, ds in bar:
@@ -327,7 +296,6 @@ class Dataset:
 			self.y_np = np.array([df.value for df in self.dfs])
 			return self.raw_np, self.y_np
 		return returns
-		
 
 	def try_pool(self, func, args):
 		if current_process().name == 'MainProcess':

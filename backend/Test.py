@@ -10,7 +10,7 @@ path1 = 'C:/Stocks/local/data/d/'
 path2 = 'C:/Stocks2/local/data/d/'
 from tqdm import tqdm
 if __name__ == '__main__':
-    main.mass_train('d_EP',200,.05)
+    main.train('d_EP',200,.05)
 
 # def pool(deff,arg):
 # 	pool = Pool()

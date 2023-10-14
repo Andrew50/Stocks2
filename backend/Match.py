@@ -22,7 +22,7 @@ np_bars = 10
 class Match:
 
     def load(tf):
-        ticker_list = screener.get('full')[:100]
+        ticker_list = screener.get('full')[:50]
         df = pd.DataFrame({'ticker': ticker_list})
         df['dt'] = None
         df['tf'] = tf
@@ -31,19 +31,26 @@ class Match:
         return df
 
     def run(ds, ticker, dt, tf):
-        y = Data(ticker, tf, dt).load_np('dtw',np_bars)
-        print(y)
-        time.sleep(3)
-        arglist = [[x, y, ticker, index] for index, x in ds]
+        y = Data(ticker, tf, dt,bars = np_bars+1).load_np('dtw',np_bars,True)
+        y=y[0][0]
+        arglist = [[x, y, tick, index] for x, tick, index in ds]
         scores = Main.pool(Match.worker, arglist)
         scores.sort(key=lambda x: x[2])
         return scores[:20]
 
     def worker(bar):
         x, y, ticker, index = bar
-        #print(f'[{x} {y}]')      
         distance = sfastdtw(x, y, 1, dist=euclidean)
         return [distance, ticker, index]
+
+    def compute(lis):
+        ticker,dt,tf = lis
+        ds = Match.load(tf)
+        top_scores = Match.run(ds, ticker, dt, tf)
+        formatted_top_scores = []
+        for score, ticker, index in top_scores:
+            formatted_top_scores.append([score,ticker,Data(ticker).df.index[index]])
+        return formatted_top_scores
 
 
 if __name__ == '__main__':
@@ -51,11 +58,7 @@ if __name__ == '__main__':
     ticker = 'JBL'  # input('input ticker: ')
     dt = '2023-10-03'  # input('input date: ')
     tf = 'd'  # int(input('input tf: '))
-    start = datetime.datetime.now()
-    ds = Match.load(tf)
-    top_scores = Match.run(ds, ticker, dt, tf)
-
-    for score, ticker, index in top_scores:
-
-        print(f'{ticker} {Data(ticker).df.index[index]} {score}')
-    print(f'completed in {datetime.datetime.now() - start}')
+    top_scores = Match.compute([ticker,dt,tf])
+    for score,ticker,date in top_scores:
+    #for score, ticker, index in top_scores:
+        print(f'{ticker} {date} {score}')

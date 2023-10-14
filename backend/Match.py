@@ -22,7 +22,7 @@ np_bars = 10
 class Match:
 
     def load(tf):
-        ticker_list = screener.get('full')[:100]
+        ticker_list = screener.get('full')
         df = pd.DataFrame({'ticker': ticker_list})
         df['dt'] = None
         df['tf'] = tf
@@ -32,8 +32,10 @@ class Match:
 
     def run(ds, ticker, dt, tf):
         y = Data(ticker, tf, dt,bars = np_bars+1).load_np('dtw',np_bars)
-        y = y[0]
-        arglist = [[x, y, ticker, index] for x, index in ds]
+        y=y[0][0]
+        
+        # = [bar[0] for bar in y]
+        arglist = [[x, y, tick, index] for x, tick, index in ds]
         scores = Main.pool(Match.worker, arglist)
         scores.sort(key=lambda x: x[2])
         return scores[:20]
@@ -44,17 +46,19 @@ class Match:
         distance = sfastdtw(x, y, 1, dist=euclidean)
         return [distance, ticker, index]
 
+    def run(lis):
+        ticker,dt,tf = lis
+        ds = Match.load(tf)
+        top_scores = Match.run(ds, ticker, dt, tf)
+        return top_scores
+
 
 if __name__ == '__main__':
 
     ticker = 'JBL'  # input('input ticker: ')
     dt = '2023-10-03'  # input('input date: ')
     tf = 'd'  # int(input('input tf: '))
-    start = datetime.datetime.now()
-    ds = Match.load(tf)
-    top_scores = Match.run(ds, ticker, dt, tf)
+    top_scores = Match.run([ticker,dt,tf])
 
     for score, ticker, index in top_scores:
-
         print(f'{ticker} {Data(ticker).df.index[index]} {score}')
-    print(f'completed in {datetime.datetime.now() - start}')

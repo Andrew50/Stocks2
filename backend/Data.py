@@ -1,3 +1,4 @@
+from argparse import ArgumentTypeError
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import models
 import io
@@ -286,8 +287,8 @@ class Dataset:
 			arrays = bar[1]
 			df = bar[0]
 			dfs.append(df)
-			for df, index in arrays:
-				returns.append([df,index])
+			for df, ticker, index in arrays:
+				returns.append([df,ticker,index])
 		self.dfs = dfs
 		self.np = returns
 		if type == 'ml':
@@ -438,6 +439,8 @@ class Data:
 		pass
 
 	def load_np(self, type, bars):
+		if type not in ('dtw','ml','gpu'):
+			raise ArgumentTypeError
 		returns = []
 		#bars = self.np_bars
 		try:
@@ -462,7 +465,7 @@ class Data:
 						# x = torch.tensor(list(x), requires_grad=True).cuda()
 						# sequence2 = torch.tensor([1.0, 2.0, 2.5, 3.5], requires_grad=True).cuda()
 						print('nice gpu code')
-					else:
+					elif type == 'dtw':
 						x = d[i-bars:i]
 						x = preprocessing.normalize(x, axis=0)
 						if type != 'ml':
@@ -470,7 +473,7 @@ class Data:
 							if type == 'dtw':
 								x = np.column_stack(
 									(x, numpy.arange(x.shape[0])))
-						returns.append([x, i])
+						returns.append([x, self.ticker,i])
 						#returns.append(x)
 		except TimeoutError:
 			pass

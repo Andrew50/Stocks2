@@ -282,7 +282,7 @@ class Dataset:
 		dfs = []
 		returns = []
 		for bar in lis:
-			print(len(bar))
+			#print(len(bar))
 			arrays = bar[1]
 			df = bar[0]
 			dfs.append(df)
@@ -291,7 +291,12 @@ class Dataset:
 		self.dfs = dfs
 		self.np = returns
 		if type == 'ml':
-			self.raw_np =   [ds for df,ds in returns]
+			self.raw_np = []
+			for df,ds in returns:
+				ds = np.aarray(ds)
+				self.raw_np.append(ds)
+			self.raw_np = np.array(self.raw_np)
+			#self.raw_np =   np.array([ds for df,ds in returns])
 			self.y_np = np.array([df.value for df in self.dfs])
 			return self.raw_np, self.y_np
 		return returns

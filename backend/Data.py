@@ -107,7 +107,7 @@ class Main:
 		df = sample(st, use)
 		sample = Dataset(df)
 		sample.load_np('ml',80)
-		sample.train(st
+		sample.train(st)
 
 	def pool(deff, arg):
 		return list(tqdm(Pool().imap_unordered(deff, arg), total=len(arg)))

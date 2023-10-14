@@ -282,7 +282,6 @@ class Dataset:
 		dfs = []
 		returns = []
 		for bar in lis:
-			print(len(bar))
 			arrays = bar[1]
 			df = bar[0]
 			dfs.append(df)

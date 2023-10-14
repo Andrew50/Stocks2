@@ -124,7 +124,7 @@ class Main:
 	def data_path(ticker, tf):
 		if 'd' in tf or 'w' in tf: path = 'd/'
 		else: path = '1min/'
-		return 'local/data/' + path + ticker + '.feather'
+		return 'C:/Stocks/local/data/' + path + ticker + '.feather'
 
 
 
@@ -272,8 +272,7 @@ class Dataset:
 	def np_worker(bar):
 		df, type, bars = bar
 		ds = df.load_np(type, bars)
-		print(type(ds))
-		return df, ds
+		return [df, ds]
 
 	def load_np(self, type, bars):
 		self.np_type = type
@@ -282,13 +281,11 @@ class Dataset:
 		lis = Dataset.try_pool(self, Dataset.np_worker, arglist)
 		dfs = []
 		returns = []
-		print(lis[0])
-		print(lis[0][0])
 		for bar in lis:
-			
+			print(bar[0])
 			for df, ds in bar:
 				dfs.append(df)
-				returns += ds
+				returns.append(ds)
 		self.dfs = dfs
 		self.np = returns
 		if type == 'ml':
@@ -418,7 +415,7 @@ class Data:
 			if 'w' in tf:
 				df = pd.concat([df, last_bar])
 			df = df.dropna()[-bars:]
-		except AttributeError:
+		except TimeoutError:
 			df = pd.DataFrame()
 		self.df = df
 		self.len = len(df)

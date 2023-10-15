@@ -21,12 +21,12 @@ from backend.sfastdtw import sfastdtw
 from scipy.spatial.distance import euclidean
 
 
-np_bars = 20
+np_bars = 10
 
 class Match:
 
     def load(tf):
-        ticker_list = screener.get('full')[:200]
+        ticker_list = screener.get('full')[:4000]
         df = pd.DataFrame({'ticker': ticker_list})
         df['dt'] = None
         df['tf'] = tf
@@ -58,7 +58,7 @@ class Match:
 
 if __name__ == '__main__':
 
-    ticker = 'QQQ'  # input('input ticker: ')
+    ticker = 'JBL'  # input('input ticker: ')
     dt = '2023-10-03'  # input('input date: ')
     tf = 'd'  # int(input('input tf: '))
     top_scores = Match.compute([ticker,dt,tf])

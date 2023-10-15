@@ -13,7 +13,7 @@ class Study:
 		self.current = current
 		if not self.current:
 			self.sub_st_list = {}
-			setups_df = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+			setups_df = pd.read_feather(r"local\study\historical_setups.feather")
 			for st in data.get_setups_list():
 				df = setups_df[setups_df['st'] == st]
 				sub_st_list = [*set(df['sub_st'].to_list())]
@@ -66,10 +66,10 @@ class Study:
 	def filter(self):
 		try:
 			if self.current: 
-				try: df = pd.read_feather(r"C:\Stocks\local\study\current_setups.feather").sort_values(by=['z'], ascending=False)
+				try: df = pd.read_feather(r"local\study\current_setups.feather").sort_values(by=['z'], ascending=False)
 				except: raise Exception('No current setups found')
 			else:
-				df = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+				df = pd.read_feather(r"local\study\historical_setups.feather")
 				sort_by = None
 				if not self.init:
 					input_filter = self.values['-input_filter-']
@@ -92,10 +92,10 @@ class Study:
 			self.setups_data = df
 			self.i = 0.0
 			self.previ = None
-			while os.path.exists("C:/Stocks/local/study/charts"):
-				try:shutil.rmtree("C:/Stocks/local/study/charts")
+			while os.path.exists("local/study/charts"):
+				try:shutil.rmtree("local/study/charts")
 				except: pass
-			os.mkdir("C:/Stocks/local/study/charts")
+			os.mkdir("local/study/charts")
 			self.preload(self)
 			self.update(self)
 		except TimeoutError: sg.Popup('no setups found')
@@ -131,7 +131,7 @@ class Study:
 		first_minute_volume = 0
 		s = mpf.make_mpf_style(base_mpf_style= 'nightclouds',marketcolors=mpf.make_marketcolors(up='g',down='r',wick ='inherit',edge='inherit',volume='inherit'))
 		for tf in tf_list:
-			p = pathlib.Path("C:/Stocks/local/study/charts") / f'{ii}_{i}.png'
+			p = pathlib.Path("local/study/charts") / f'{ii}_{i}.png'
 			try:
 				chart_size = 100
 				if 'min' in tf: chart_offset = chart_size - 1
@@ -163,7 +163,7 @@ class Study:
 				ax.set_yscale('log')
 				ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
 				plt.savefig(p, bbox_inches='tight',dpi = data.get_config('Study chart_dpi'))
-			except: shutil.copy(r"C:\Stocks\sync\files\blank.png",p)
+			except: shutil.copy(r"sync\files\blank.png",p)
 			ii -= 1
 
 	def update(self):
@@ -175,7 +175,7 @@ class Study:
 			if self.current: layout += [[sg.Button('Prev'), sg.Button('Next')]]
 			#if self.current: layout += [[sg.Button('Prev'), sg.Button('Next'), sg.Button('Yes'),sg.Button('No')]]
 			else: 
-				df = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+				df = pd.read_feather(r"local\study\historical_setups.feather")
 				self.annotated = len(df[df['pre_annotation'] != ''])
 				layout += [[sg.Multiline(size=(150, 5), key='-annotation-')],[sg.Combo([],key = '-sub_st-', size = (20,10))],[sg.Button('Prev'), sg.Button('Next'),sg.Button('Yes'),sg.Button('No'),sg.Button('Load'),sg.InputText(key = '-input_filter-'),sg.Text(key='annotated')]]
 			self.window = sg.Window('Study', layout,margins = (10,10),scaling = data.get_config('Study ui_scale'),finalize = True)
@@ -183,7 +183,7 @@ class Study:
 		for i in range(1,5):
 			while True:
 				try: 
-					image = PIL.Image.open(f'C:\Stocks\local\study\charts\{i}_{self.i}.png')
+					image = PIL.Image.open(f'local\study\charts\{i}_{self.i}.png')
 					bio = io.BytesIO()
 					image.save(bio,format="PNG")
 					self.window[f'-chart{i}-'].update(data = bio.getvalue())
@@ -192,7 +192,7 @@ class Study:
 		self.window['-counter-'].update(str(f"{math.floor(self.i + 1)} of {len(self.setups_data)}"))
 		if not self.current:
 			if self.previ != None:
-				df = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+				df = pd.read_feather(r"local\study\historical_setups.feather")
 				annotation = self.values["-annotation-"]
 				sub_st = self.values['-sub_st-']
 				st = self.setups_data.iloc[math.floor(self.i)]['st']
@@ -204,7 +204,7 @@ class Study:
 				df.at[index, col] = annotation
 				self.setups_data.at[index,'sub_st'] = sub_st
 				df.at[index,'sub_st'] = sub_st
-				df.to_feather(r"C:\Stocks\local\study\historical_setups.feather")
+				df.to_feather(r"local\study\historical_setups.feather")
 			if int(self.i) == self.i: 
 				self.annotated += 1
 				self.window['annotated'].update(str(self.annotated))
@@ -243,7 +243,7 @@ class Screener:
 				ticker_list = ticker
 			if fpath != None: path = fpath
 			if path == 1: 
-				try: os.remove(r"C:\Stocks\local\study\current_setups.feather")
+				try: os.remove(r"local\study\current_setups.feather")
 				except FileNotFoundError: pass
 			df = pd.DataFrame()
 			df['ticker'] = ticker_list
@@ -254,16 +254,16 @@ class Screener:
 			for ticker, dt, st, score in setups:
 				if path == 3: print(f'{ticker} {dt} {score} {st}')
 				elif path == 2:
-					mpf.plot(df[-100:], type='candle', mav=(10, 20), volume=True, title=f'{ticker}, {st}, {score}, {tf}', style=mpf.make_mpf_style(marketcolors=mpf.make_marketcolors(up='g',down='r')), savefig = pathlib.Path("C:/Stocks/local/screener")/ 'intraday.png')
+					mpf.plot(df[-100:], type='candle', mav=(10, 20), volume=True, title=f'{ticker}, {st}, {score}, {tf}', style=mpf.make_mpf_style(marketcolors=mpf.make_marketcolors(up='g',down='r')), savefig = pathlib.Path("local/screener")/ 'intraday.png')
 					Discord(url="https://discord.com/api/webhooks/1071667193709858847/qwHcqShmotkEPkml8BSMTTnSp38xL1-bw9ESFRhBe5jPB9o5wcE9oikfAbt-EKEt7d3c").post(file={"intraday": open('local/screener/intraday.png', "rb")})
 				elif path == 1:
-					d = r"C:\Stocks\local\study\current_setups.feather"
+					d = r"local\study\current_setups.feather"
 					try: setups = pd.read_feather(d)
 					except: setups = pd.DataFrame()
 					setups = pd.concat([setups,pd.DataFrame({'ticker': [ticker],'dt':[dt],'st': [st],'z':[score]})]).reset_index(drop = True)
 					setups.to_feather(d)
 				elif path == 0:
-					d = r"C:\Stocks\local\study\historical_setups.feather"
+					d = r"local\study\historical_setups.feather"
 					try: setups = pd.read_feather(d)
 					except: setups = pd.DataFrame()
 					setups = pd.concat([setups,pd.DataFrame({'ticker':[ticker], 'dt': [dt],'st': [st], 'z': [score], 'sub_st':[st], 'pre_annotation': [""], 'post_annotation': [""] })]) .reset_index(drop = True)
@@ -313,24 +313,24 @@ class Screener:
 			return browser
 
 		def get_full(refresh):
-			df1 = pd.read_feather("C:/Stocks/sync/files/full_scan.feather")
+			df1 = pd.read_feather("sync/files/full_scan.feather")
 			if not refresh: return df1['ticker'].tolist()
-			df2 = pd.read_feather("C:/Stocks/sync/files/current_scan.feather")
+			df2 = pd.read_feather("sync/files/current_scan.feather")
 			df3 = pd.concat([df1,df2]).drop_duplicates(subset = ['ticker'])		
 			not_in_current = (pd.concat([df3,df2]).drop_duplicates(subset = ['ticker'],keep = False))['ticker'].tolist()
 			removelist = []
 			for ticker in not_in_current:
-				if pd.isna(ticker) or not os.path.exists('C:/Stocks/local/data/1min/' + ticker + '.feather'):
+				if pd.isna(ticker) or not os.path.exists('local/data/1min/' + ticker + '.feather'):
 					removelist.append(ticker)
 			df3 = df3.set_index('ticker',drop = True)
 			df3.drop(removelist, inplace = True)
 			df3 = df3.reset_index()
-			df3.to_feather("C:/Stocks/sync/files/full_scan.feather")
+			df3.to_feather("sync/files/full_scan.feather")
 			return df3['ticker'].tolist()
 
 		def get_current(refresh,browser = None):
 			if not refresh:
-				try: return pd.read_feather("C:/Stocks/sync/files/current_scan.feather")['ticker'].tolist(), browser
+				try: return pd.read_feather("sync/files/current_scan.feather")['ticker'].tolist(), browser
 				except FileNotFoundError: pass
 			try:
 				if browser == None: browser = start_firefox()
@@ -369,14 +369,14 @@ class Screener:
 			df = df.fillna(0)
 			df = df.rename(columns={'Ticker':'ticker','Exchange':'exchange','Pre-market Change':'pm change','Pre-market Volume':'pm volume','Relative Volume at Time':'rvol'})
 			df = df.reset_index(drop = True)
-			df.to_feather(r"C:\Stocks\sync\files\current_scan.feather")
+			df.to_feather(r"sync\files\current_scan.feather")
 			return df['ticker'].tolist() , browser
 
 		def get_intraday(browser = None):
 			while True:
 				try:
 					get_current(True,browser)
-					df = pd.read_feather("C:/Stocks/sync/files/current_scan.feather")
+					df = pd.read_feather("sync/files/current_scan.feather")
 					break
 				except (selenium.common.exceptions.NoSuchElementException, AttributeError):
 					try: browser.find_element(By.XPATH, '//button[@class="close-button-FuMQAaGA closeButton-zCsHEeYj defaultClose-zCsHEeYj"]').click()

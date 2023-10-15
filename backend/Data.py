@@ -177,7 +177,7 @@ class Main:
 
 	def run():
 		Main.check_directories()
-		from Screener import Screener as screener
+		from backend.Study import Screener as screener
 		df = pd.DataFrame({'ticker':screener.get('full', True)})
 		df['tf'] = 'd'
 		df['dt'] = None

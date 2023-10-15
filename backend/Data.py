@@ -1,9 +1,18 @@
+import os, sys
+_src = os.path.dirname(os.path.abspath(__file__))
+_parent = _src.split('Stocks2')[0]
+sys.path.append(_parent + (r'Stocks2/'))
 from argparse import ArgumentTypeError
 from tensorflow.keras.models import Sequential
+#from ..subpackage2 import module2
 from tensorflow.keras import models
+#sys.path.append(Stocks2/backend')
+# Now, you can import the Match module
+
 import io
 import PIL
 import pathlib
+import concurrent.futures
 from multiprocessing.pool import Pool
 from bisect import insort_right
 import numpy as np
@@ -94,15 +103,8 @@ class Main:
 		df = pd.concat([yes, no]).sample(frac=1).reset_index(drop=True)
 		df['tf'] = st.split('_')[0]
 		df = df[['ticker', 'dt', 'tf']]
-		print(len(df))
 		
 		return df
-
-	def train(st, use, epochs):
-		df = Main.sample(st, use)
-		sample = Dataset(df)
-		sample.load_np('ml',80)
-		sample.train(st,.08,200) 
 
 	def pool(deff, arg):
 		return list(tqdm(Pool().imap_unordered(deff, arg), total=len(arg)))
@@ -127,9 +129,7 @@ class Main:
 	def data_path(ticker, tf):
 		if 'd' in tf or 'w' in tf: path = 'd/'
 		else: path = '1min/'
-		return 'C:/Stocks/local/data/' + path + ticker + '.feather'
-
-
+		return 'local/data/' + path + ticker + '.feather'
 
 	def is_market_open():  # Change to a boolean at some point
 		if (datetime.datetime.now().weekday() >= 5):
@@ -148,7 +148,6 @@ class Main:
 		model = models.load_model('sync/models/model_' + st)
 		print(f'{st} model loaded in {datetime.datetime.now() - start}')
 		return model
-
 
 	def get_config(name):
 		s = open("config.txt", "r").read()
@@ -176,24 +175,30 @@ class Main:
 		except: pass
 		return value
 
-
-
 	def run():
 		Main.check_directories()
 		from Screener import Screener as screener
-		scan = screener.get('full', True)
-		batches = []
-		for i in range(len(scan)):
-			for tf in ['d', '1min']:
-				batches.append([scan[i], tf])
-		Main.pool(Data.update, batches)
-		ident =  Data.get_config("Data identity")
+		df = pd.DataFrame({'ticker':screener.get('full', True)})
+		df['tf'] = 'd'
+		df['dt'] = None
+		ds = Dataset(df)
+		ds.update()
+		df['tf'] = '1min'
+		ds = Dataset(df)
+		ds.update()
+		ident =  Main.get_config("Data identity")
 		if ident == 'desktop' or ident == 'laptop':
 			weekday = datetime.datetime.now().weekday()
 			if weekday == 4:
 				Data.backup()
-				Data.retrain_models()
-		Data.refill_backtest()
+				use = .08
+				epochs = 200
+				for st in Main.get_setups_list():
+					df = Main.sample(st, use)
+					sample = Dataset(df)
+					sample.load_np('ml',80)
+					sample.train(st,use,epochs) 
+		Main.refill_backtest()
 
 	def check_directories():
 		dirs = ['local', 'local/data', 'local/account', 'local/study','local/trainer', 'local/data/1min', 'local/data/d']
@@ -203,23 +208,22 @@ class Main:
 
 	def refill_backtest():
 		from Screener import Screener as screener
-		try:historical_setups = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+		try:historical_setups = pd.read_feather(r"local\study\historical_setups.feather")
 		except:historical_setups = pd.DataFrame()
-		if not os.path.exists("C:\Stocks\local\study\full_list_minus_annotated.feather"):
-			shutil.copy(r"C:\Stocks\sync\files\full_scan.feather",r"C:\Stocks\local\study\full_list_minus_annotated.feather")
+		if not os.path.exists("local\study\full_list_minus_annotated.feather"):
+			shutil.copy(r"sync\files\full_scan.feather",r"local\study\full_list_minus_annotated.feather")
 		while historical_setups.empty or (len(historical_setups[historical_setups["pre_annotation"] == ""]) < 2500):
-			full_list_minus_annotation = pd.read_feather(r"C:\Stocks\local\study\full_list_minus_annotated.feather").sample(frac=1)
+			full_list_minus_annotation = pd.read_feather(r"local\study\full_list_minus_annotated.feather").sample(frac=1)
 			screener.run(ticker=full_list_minus_annotation[:20]['ticker'].tolist(), fpath=0)
 			full_list_minus_annotation = full_list_minus_annotation[20:].reset_index(drop=True)
-			full_list_minus_annotation.to_feather(r"C:\Stocks\local\study\full_list_minus_annotated.feather")
-			historical_setups = pd.read_feather(r"C:\Stocks\local\study\historical_setups.feather")
+			full_list_minus_annotation.to_feather(r"local\study\full_list_minus_annotated.feather")
+			historical_setups = pd.read_feather(r"local\study\historical_setups.feather")
 
 	def backup():
 		date = datetime.date.today()
-		src = r'C:/Stocks'
-		dst = r'C:/Backups/' + str(date)
-		shutil.copytree(src, dst)
-		path = "C:/Backups/"
+		path = 'C:/Backups/'
+		dst = path + str(date)
+		shutil.copytree(_parent, dst,ignore=shutil.ignore_patterns("local"))
 		dir_list = os.listdir(path)
 		for b in dir_list:
 			dt = datetime.datetime.strptime(b, '%Y-%m-%d')
@@ -267,10 +271,22 @@ class Main:
 		return setups
 
 
-class Dataset:
+class Dataset: #object
+	def update_worker(df):
+		df.update()
+
+	def update(self):
+		Dataset.try_pool(Dataset.update_worker,self.dfs)
+		
+	def plot_worker(bar):
+		df, hidden = bar
+		return df.load_plot(hidden = hidden)
 	
-	def load_image (self,i):
-		pass
+	def load_plot(self,i=None,hidden = False):
+		dfs = self.dfs
+		if i == None:
+			Dataset.try_pool(Dataset.plot_worker,[[df, hidden] for df in dfs])
+		return dfs[i].load_plot(hidden)
 
 	def np_worker(bar):
 		df, type, bars = bar
@@ -281,11 +297,10 @@ class Dataset:
 		self.np_type = type
 		self.np_bars = bars
 		arglist = [[df, type, bars] for df in self.dfs]
-		lis = Dataset.try_pool(self, Dataset.np_worker, arglist)
+		lis = Dataset.try_pool(Dataset.np_worker, arglist)
 		dfs = []
 		returns = []
 		for bar in lis:
-			#print(len(bar))
 			arrays = bar[1]
 			df = bar[0]
 			dfs.append(df)
@@ -304,13 +319,21 @@ class Dataset:
 			return self.raw_np, self.y_np
 		return returns
 
-	def try_pool(self, func, args):
+	def try_pool(func, args):
+		start = datetime.datetime.now()
 		if current_process().name == 'MainProcess':
-			return Main.pool(func, args)
-		return [func(**arg) for arg in args]
+			returns = Main.pool(func,args)
+			#with Pool() as pool:
+				#returns = pool.imap_unordered(func, args)
+				#pool.close()
+				#pool.join()
+		else:
+			returns = [func(**arg) for arg in args]
+		print(f'{datetime.datetime.now() - start}')
+		return returns
 
 	def train(self, st, percent_yes, epochs):
-		df = pd.read_feather('C:/Stocks/local/data/' + st + '.feather')
+		df = pd.read_feather('local/data/' + st + '.feather')
 		ones = len(df[df['value'] == 1])
 		if ones < 150:
 			print(f'{st} cannot be trained with only {ones} positives')
@@ -323,7 +346,7 @@ class Dataset:
 		model.compile(loss='sparse_categorical_crossentropy',
 					  optimizer=Adam(learning_rate=1e-3), metrics=['accuracy'])
 		model.fit(x, y, epochs=epochs, batch_size=64, validation_split=.2,)
-		model.save('C:/Stocks/sync/models/model_' + st)
+		model.save('sync/models/model_' + st)
 		tensorflow.keras.backend.clear_session()
 
 	def init_worker(pack):
@@ -336,7 +359,7 @@ class Dataset:
 		return Data(ticker, tf, dt, bars, offset, value, pm, np_bars)
 
 	def __init__(self, request=pd.DataFrame(), bars=0, offset=0, value=None, pm=True, np_bars=50):
-		from Screener import Screener as screener
+		from backend.Study import Screener as screener
 		if request.empty:
 			tickers = screener.get('full')
 			request = pd.DataFrame({'ticker': tickers})
@@ -344,29 +367,34 @@ class Dataset:
 			request['tf'] = 'd'
 		other = (bars, offset, value, pm, np_bars)
 		arglist = [[request.iloc[i], other] for i in range(len(request))]
-		self.dfs = Dataset.try_pool(self,Dataset.init_worker, arglist)
+		self.dfs = Dataset.try_pool(Dataset.init_worker, arglist)
+		self.num_cores = 12
 		self.request = request
-		self.len = len(self.dfs)
 		self.value = value
 		self.bars = bars
 		self.offset = offset
 		self.np_bars = np_bars
+		#self.dfs = Dataset.data_generator(self)
+		self.len = len(self.dfs)
+		
+		
 
 
-class Data:
+class Data: #object
 
 	def update(self):
 		ticker = self.ticker
 		tf = self.tf
+		path = self.path
 		exists = True
 		try:
-			df = feather.read_feather(Data.data_path(ticker,tf)).set_index('datetime',drop = True)######
+			df = self.df
 			last_day = self.df.index[-1] 
 		except: exists = False
-		if tf == 'd':
+		if tf == '1d':
 			ytf = '1d'
 			period = '25y'
-		else:
+		elif tf == '1min':
 			ytf = '1m'
 			period = '5d'
 		ydf = yf.download(tickers = ticker, period = period, group_by='ticker', interval = ytf, ignore_tz = True, progress=False, show_errors = False, threads = False, prepost = True) 
@@ -385,20 +413,20 @@ class Data:
 			if tf == '1min': pass
 			elif tf == 'd': df.index = df.index.normalize() + pd.Timedelta(minutes = 570)
 			df = df.reset_index()
-			feather.write_feather(df,Data.data_path(ticker,tf))
+			feather.write_feather(df,path)
 
 	def __init__(self, ticker='QQQ', tf='d', dt=None, bars=0, offset=0, value=None, pm=True, np_bars=50):
 		try:
 			if len(tf) == 1:
 				tf = '1' + tf
 			dt = Main.format_date(dt)
+			self.path = Main.data_path(ticker, tf)
 			if 'd' in tf or 'w' in tf:
 				base_tf = '1d'
 			else:
 				base_tf = '1min'
 			try:
-				df = feather.read_feather(Main.data_path(
-					ticker, tf)).set_index('datetime', drop=True)
+				df = feather.read_feather(self.path).set_index('datetime', drop=True)
 			except FileNotFoundError:
 				raise TimeoutError
 			if df.empty:
@@ -440,7 +468,7 @@ class Data:
 	def requirements(self):
 		pass
 
-	def load_np(self, type, bars):
+	def load_np(self, type, bars,debug = False):
 		if type not in ('dtw','ml','gpu'):
 			raise ArgumentTypeError
 		returns = []
@@ -519,7 +547,7 @@ class Data:
 			df = self.df
 		else:
 			df = self
-		i = int(len(df)/2)
+		i = int(len(df)/2)		
 		k = int(i/2)
 		while k != 0:
 			date = df.index[i].to_pydatetime()
@@ -534,9 +562,6 @@ class Data:
 			i -= 1
 		return i
 
-
-
-
-
 if __name__ == '__main__':
+	#Main.backup()
 	Main.run()

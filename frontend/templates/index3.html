@@ -20,14 +20,20 @@
 </head>
 
 <body>
-    <table id="myTable">
-        <!-- Table content will be generated dynamically using JavaScript -->
+    <table border="1">
+        <tr>
+            {% for item in header %}
+            <th>{{ item }}</th>
+            {% endfor %}
+        </tr>
+        {% for row in data %}
+        <tr>
+            {% for item in row %}
+            <td>{{ item }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
     </table>
-
-    <script src="script.js"></script>
-</body>
-
-</html> 
  
     <script>
     

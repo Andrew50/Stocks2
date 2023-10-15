@@ -8,9 +8,13 @@ from Data import Main as main
 from multiprocessing import Pool
 path1 = 'C:/Stocks/local/data/d/'
 path2 = 'C:/Stocks2/local/data/d/'
-from tqdm import tqdm
-if __name__ == '__main__':
-    main.train('d_EP',200,.05)
+import os
+
+from Data import Data
+ds = Data()
+print(ds.df)
+# if __name__ == '__main__':
+#     main.train('d_EP',200,.05)
 
 # def pool(deff,arg):
 # 	pool = Pool()

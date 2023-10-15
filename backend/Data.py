@@ -1,9 +1,14 @@
+import os, sys
+_src = os.path.dirname(os.path.abspath(__file__))
+_parent = _src.split('Stocks2')[0]
+sys.path.append(_parent + (r'Stocks2/'))
 from argparse import ArgumentTypeError
 from tensorflow.keras.models import Sequential
+#from ..subpackage2 import module2
 from tensorflow.keras import models
-
-
+#sys.path.append(Stocks2/backend')
 # Now, you can import the Match module
+
 import io
 import PIL
 import pathlib
@@ -60,8 +65,7 @@ import pytz
 import tensorflow
 import random
 warnings.filterwarnings("ignore")
-import sys
-sys.path.append('Stocks2/backend')
+	
 class Main:
 
 	def sample(st, use):
@@ -101,9 +105,6 @@ class Main:
 		df = df[['ticker', 'dt', 'tf']]
 		
 		return df
-
-	def train(st, use, epochs):
-		pass
 
 	def pool(deff, arg):
 		return list(tqdm(Pool().imap_unordered(deff, arg), total=len(arg)))
@@ -148,7 +149,6 @@ class Main:
 		print(f'{st} model loaded in {datetime.datetime.now() - start}')
 		return model
 
-
 	def get_config(name):
 		s = open("config.txt", "r").read()
 		trait = name.split(' ')[1]
@@ -177,7 +177,7 @@ class Main:
 
 	def run():
 		Main.check_directories()
-		from Screener import Screener as screener
+		from backend.Study import Screener as screener
 		df = pd.DataFrame({'ticker':screener.get('full', True)})
 		df['tf'] = 'd'
 		df['dt'] = None
@@ -221,10 +221,9 @@ class Main:
 
 	def backup():
 		date = datetime.date.today()
-		src = ''#r':/Stocks'
-		dst = r'local/backups/' + str(date)
-		shutil.copytree(src, dst)
-		path = "local/backups/"
+		path = 'C:/Backups/'
+		dst = path + str(date)
+		shutil.copytree(_parent, dst,ignore=shutil.ignore_patterns("local"))
 		dir_list = os.listdir(path)
 		for b in dir_list:
 			dt = datetime.datetime.strptime(b, '%Y-%m-%d')
@@ -272,16 +271,22 @@ class Main:
 		return setups
 
 
-class Dataset:
+class Dataset: #object
 	def update_worker(df):
 		df.update()
 
 	def update(self):
-		#return Pool().imap(Dataset.update_worker,self.dfs)
-		return Dataset.try_pool(Dataset.update_worker,self.dfs)
+		Dataset.try_pool(Dataset.update_worker,self.dfs)
+		
+	def plot_worker(bar):
+		df, hidden = bar
+		return df.load_plot(hidden = hidden)
 	
-	def load_image (self,i):
-		pass
+	def load_plot(self,i=None,hidden = False):
+		dfs = self.dfs
+		if i == None:
+			Dataset.try_pool(Dataset.plot_worker,[[df, hidden] for df in dfs])
+		return dfs[i].load_plot(hidden)
 
 	def np_worker(bar):
 		df, type, bars = bar
@@ -354,7 +359,7 @@ class Dataset:
 		return Data(ticker, tf, dt, bars, offset, value, pm, np_bars)
 
 	def __init__(self, request=pd.DataFrame(), bars=0, offset=0, value=None, pm=True, np_bars=50):
-		from Screener import Screener as screener
+		from backend.Study import Screener as screener
 		if request.empty:
 			tickers = screener.get('full')
 			request = pd.DataFrame({'ticker': tickers})
@@ -375,7 +380,7 @@ class Dataset:
 		
 
 
-class Data:
+class Data: #object
 
 	def update(self):
 		ticker = self.ticker
@@ -386,10 +391,10 @@ class Data:
 			df = self.df
 			last_day = self.df.index[-1] 
 		except: exists = False
-		if tf == 'd':
+		if tf == '1d':
 			ytf = '1d'
 			period = '25y'
-		else:
+		elif tf == '1min':
 			ytf = '1m'
 			period = '5d'
 		ydf = yf.download(tickers = ticker, period = period, group_by='ticker', interval = ytf, ignore_tz = True, progress=False, show_errors = False, threads = False, prepost = True) 
@@ -438,8 +443,10 @@ class Data:
 							df, dt) + 1 + int(offset*(pd.Timedelta(tf) / pd.Timedelta(base_tf)))]
 				except IndexError:
 					raise TimeoutError
-			if tf != '1min' or not pm:
-				df = df.between_time('09:30', '15:59')
+			print(df)
+										if tf != '1min' or not pm:
+									df = df.between_time('09:30', '15:59')
+			print(df)
 			if 'w' in tf:
 				last_bar = df.tail(1)
 				df = df[:-1]
@@ -448,7 +455,7 @@ class Data:
 			if 'w' in tf:
 				df = pd.concat([df, last_bar])
 			df = df.dropna()[-bars:]
-		except TimeoutError:
+		except AttributeError:
 			df = pd.DataFrame()
 		self.df = df
 		self.len = len(df)
@@ -558,5 +565,5 @@ class Data:
 		return i
 
 if __name__ == '__main__':
-	Main.backup()
+	#Main.backup()
 	Main.run()

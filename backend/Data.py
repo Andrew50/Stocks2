@@ -443,8 +443,10 @@ class Data: #object
 							df, dt) + 1 + int(offset*(pd.Timedelta(tf) / pd.Timedelta(base_tf)))]
 				except IndexError:
 					raise TimeoutError
-			if tf != '1min' or not pm:
-				df = df.between_time('09:30', '15:59')
+			print(df)
+										if tf != '1min' or not pm:
+									df = df.between_time('09:30', '15:59')
+			print(df)
 			if 'w' in tf:
 				last_bar = df.tail(1)
 				df = df[:-1]
@@ -453,7 +455,7 @@ class Data: #object
 			if 'w' in tf:
 				df = pd.concat([df, last_bar])
 			df = df.dropna()[-bars:]
-		except TimeoutError:
+		except AttributeError:
 			df = pd.DataFrame()
 		self.df = df
 		self.len = len(df)

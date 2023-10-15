@@ -58,7 +58,7 @@ class Match:
 
 if __name__ == '__main__':
 
-    ticker = 'JBL'  # input('input ticker: ')
+    ticker = 'QQQ'  # input('input ticker: ')
     dt = '2023-10-03'  # input('input date: ')
     tf = 'd'  # int(input('input tf: '))
     top_scores = Match.compute([ticker,dt,tf])

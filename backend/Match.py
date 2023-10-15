@@ -32,7 +32,6 @@ class Match:
 
     def run(ds, ticker, dt, tf):
         y = Data(ticker, tf, dt,bars = np_bars+1).load_np('dtw',np_bars,True)
-        y=y[0][0]
         print(y)
         arglist = [[x, y, tick, index] for x, tick, index in ds]
         scores = Main.pool(Match.worker, arglist)

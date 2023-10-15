@@ -1,7 +1,7 @@
 from argparse import ArgumentTypeError
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import models
-sys.path.append(Stocks2/backend')
+
 
 # Now, you can import the Match module
 import io
@@ -60,7 +60,8 @@ import pytz
 import tensorflow
 import random
 warnings.filterwarnings("ignore")
-	
+import sys
+sys.path.append('Stocks2/backend')
 class Main:
 
 	def sample(st, use):

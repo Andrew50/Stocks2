@@ -8,25 +8,25 @@ from backend.Data import Main, Data, Dataset
 import numpy as np
 import pandas as pd
 import datetime
-from Screener import Screener as screener
+from backend.Study import Screener as screener
 import time
 from discordwebhook import Discord
 import numpy as np
 from sklearn import preprocessing
-from sfastdtw import sfastdtw
+from backend.sfastdtw import sfastdtw
 import mplfinance as mpf
 import torch
 from tqdm import tqdm
-from sfastdtw import sfastdtw
+from backend.sfastdtw import sfastdtw
 from scipy.spatial.distance import euclidean
 
 
-np_bars = 10
+np_bars = 20
 
 class Match:
 
     def load(tf):
-        ticker_list = screener.get('full')[:50]
+        ticker_list = screener.get('full')[:200]
         df = pd.DataFrame({'ticker': ticker_list})
         df['dt'] = None
         df['tf'] = tf
@@ -37,10 +37,9 @@ class Match:
     def run(ds, ticker, dt, tf):
         y = Data(ticker, tf, dt,bars = np_bars+1).load_np('dtw',np_bars,True)
         y=y[0][0]
-        print(y)
         arglist = [[x, y, tick, index] for x, tick, index in ds]
         scores = Main.pool(Match.worker, arglist)
-        scores.sort(key=lambda x: x[2])
+        scores.sort(key=lambda x: x[0])
         return scores[:20]
 
     def worker(bar):

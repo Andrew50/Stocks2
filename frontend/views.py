@@ -40,4 +40,4 @@ def home():
     
 @views.route("/return")
 def Return():
-    return render_template("index3.html", datahtml = data_out)
+    return render_template("index3.html", data = data_out, header = ['Score','Ticker','Datetime'])

@@ -1,7 +1,7 @@
 import pandas as pd
 import mplfinance as mpf
 import PySimpleGUI as sg
-from Data import Data as data
+import datetime
 import matplotlib.ticker as mticker
 from matplotlib import pyplot as plt
 from multiprocessing.pool import Pool

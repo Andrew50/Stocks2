@@ -10,17 +10,8 @@ path1 = 'C:/Stocks/local/data/d/'
 path2 = 'C:/Stocks2/local/data/d/'
 import os
 
-def list_files(startpath):
-    for root, dirs, files in os.walk(startpath):
-        level = root.replace(startpath, '').count(os.sep)
-        indent = ' ' * 4 * (level)
-        print('{}{}/'.format(indent, os.path.basename(root)))
-        subindent = ' ' * 4 * (level + 1)
-        for f in files:
-            print('{}{}'.format(subindent, f))
-            
-list_files('C:/Stocks2/')
-from tqdm import tqdm
+df = Data()
+plot = df.load_plot()
 # if __name__ == '__main__':
 #     main.train('d_EP',200,.05)
 

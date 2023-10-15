@@ -277,9 +277,15 @@ class Dataset: #object
 
 	def update(self):
 		Dataset.try_pool(Dataset.update_worker,self.dfs)
+		
+	def plot_worker(bar):
+		df, hidden = bar
+		return df.load_plot(hidden = hidden)
 	
-	def load_plot(self,i,hidden = False):
+	def load_plot(self,i=None,hidden = False):
 		dfs = self.dfs
+		if i == None:
+			Dataset.try_pool(Dataset.plot_worker,[[df, hidden] for df in dfs])
 		return dfs[i].load_plot(hidden)
 
 	def np_worker(bar):
@@ -353,7 +359,7 @@ class Dataset: #object
 		return Data(ticker, tf, dt, bars, offset, value, pm, np_bars)
 
 	def __init__(self, request=pd.DataFrame(), bars=0, offset=0, value=None, pm=True, np_bars=50):
-		from Screener import Screener as screener
+		from backend.Study import Screener as screener
 		if request.empty:
 			tickers = screener.get('full')
 			request = pd.DataFrame({'ticker': tickers})

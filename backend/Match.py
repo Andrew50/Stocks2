@@ -19,14 +19,14 @@ import torch
 from tqdm import tqdm
 from backend.sfastdtw import sfastdtw
 from scipy.spatial.distance import euclidean
-
+from multiprocessing import Pool
 
 np_bars = 10
 
 class Match:
 
     def load(tf):
-        ticker_list = screener.get('full')[:4000]
+        ticker_list = screener.get('full')[:8000]
         df = pd.DataFrame({'ticker': ticker_list})
         df['dt'] = None
         df['tf'] = tf
@@ -38,7 +38,9 @@ class Match:
         y = Data(ticker, tf, dt,bars = np_bars+1).load_np('dtw',np_bars,True)
         y=y[0][0]
         arglist = [[x, y, tick, index] for x, tick, index in ds]
-        scores = Main.pool(Match.worker, arglist)
+        start = datetime.datetime.now()
+        scores = Pool().map(Match.worker, arglist)#Main.pool(Match.worker, arglist)
+        print(f'completed in {datetime.datetime.now() - start}')
         scores.sort(key=lambda x: x[0])
         return scores[:20]
 
